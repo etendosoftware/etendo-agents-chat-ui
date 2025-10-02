@@ -111,6 +111,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 MONGODB_URI=mongodb+srv://...
 MONGODB_DB_NAME=chat_history         # optional override
 JIRA_WEBHOOK_URL=https://...         # POST endpoint returning { isJiraUser: boolean }
+NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX       # optional GA4 measurement ID
 
 If you run locally, also provide NEXT_PUBLIC_SITE_URL to n8n if needed (not referenced in code).
 
@@ -158,6 +159,7 @@ If you run locally, also provide NEXT_PUBLIC_SITE_URL to n8n if needed (not refe
 - Audio recording requires HTTPS in browsers.
 - Supabase server client relies on cookies; middleware refreshes sessions so pages stay up to date.
 - MongoDB connection is cached; adjust maxPoolSize in lib/mongodb.ts for high throughput.
+- With `NEXT_PUBLIC_GA_ID` set, GA4 receives `agent_view` and `agent_message_sent` events that include agent identifiers, access level, and attachment metadata for reporting.
 - Consider enabling Vercel edge runtime for streaming routes if deploying there (current webhook route runs on Node runtime).
 
 ## Troubleshooting

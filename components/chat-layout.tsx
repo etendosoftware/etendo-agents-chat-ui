@@ -1,14 +1,19 @@
 
 'use client'
 
+import { useEffect } from 'react';
 import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { SidebarConversations } from '@/components/conversation-history-content';
-import ChatInterface from '@/components/chat-interface';
-import { Agent } from '@/components/chat-interface';
+import ChatInterface, { Agent } from '@/components/chat-interface';
 import { User } from '@supabase/supabase-js';
 import { Conversation } from '@/lib/actions/chat';
-import { useMediaQuery } from '@/hooks/use-media-query';
 import { GlobalHeader } from './global-header';
+
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
 
 interface ChatLayoutProps {
   agent: Agent;
@@ -31,6 +36,19 @@ export default function ChatLayout({
   agentPath, 
   userRole 
 }: ChatLayoutProps) {
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.gtag) {
+      return;
+    }
+
+    window.gtag('event', 'agent_view', {
+      agent_id: agent.id,
+      agent_path: agent.path,
+      agent_access_level: agent.access_level,
+      user_role: userRole ?? (user ? 'unknown' : 'guest'),
+      has_conversation: Boolean(conversationId),
+    });
+  }, [agent.id, agent.path, agent.access_level, userRole, user?.id, conversationId]);
 
   const isUserLoggedIn = !!user;
 

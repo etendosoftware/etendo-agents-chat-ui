@@ -20,6 +20,12 @@ import VideoAnalysis from "./video-analysis"
 import { Separator } from "./ui/separator"
 import { cn } from "@/lib/utils"
 
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
 export interface Agent {
   id: string
   name: string
@@ -155,6 +161,20 @@ export default function ChatInterface({
     setIsVideoAnalysis(false)
     setIsResponding(true)
     setIsLoading(true)
+
+    if (typeof window !== 'undefined' && window.gtag) {
+      window.gtag('event', 'agent_message_sent', {
+        agent_id: selectedAgent.id,
+        agent_path: selectedAgent.path,
+        agent_access_level: selectedAgent.access_level,
+        conversation_id: conversationId ?? conversationKey,
+        has_conversation: Boolean(conversationId),
+        attachments_count: files.length,
+        audio_attached: Boolean(audioBlob),
+        video_analysis: Boolean(videoAnalysis),
+        user_role: user?.user_metadata?.role || user?.app_metadata?.role || null,
+      })
+    }
 
     try {
       const formData = new FormData()
