@@ -1,5 +1,5 @@
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
-import { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { getConversationHistory, getMessagesForConversation } from '@/lib/actions/chat';
 import ChatLayout from '@/components/chat-layout';
@@ -7,6 +7,40 @@ import { Agent } from '@/components/chat-interface';
 import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({ params }: { params: { agentPath: string } }): Promise<Metadata> {
+    try {
+        const supabaseClient = createClient();
+        const { data: agent } = await supabaseClient
+            .from('agents')
+            .select('name, description, path')
+            .eq('path', `/${params.agentPath}`)
+            .maybeSingle();
+
+        if (!agent) {
+            return {
+                title: 'Chat | Etendo Agents',
+                description: 'Interact with Etendo AI agents.',
+            };
+        }
+
+        return {
+            title: `${agent.name} | Etendo Agents`,
+            description: agent.description ?? 'Interact with an Etendo AI agent.',
+            openGraph: {
+                title: `${agent.name} | Etendo Agents`,
+                description: agent.description ?? 'Interact with an Etendo AI agent.',
+                url: `/chat/${params.agentPath}`,
+            },
+        };
+    } catch (error) {
+        console.error('Failed to generate metadata for agent:', error);
+        return {
+            title: 'Chat | Etendo Agents',
+            description: 'Interact with Etendo AI agents.',
+        };
+    }
+}
 
 async function getUserRole(supabaseClient: any, userId: string) {
     const { data: profile, error } = await supabaseClient
@@ -18,7 +52,7 @@ async function getUserRole(supabaseClient: any, userId: string) {
     if (error || !profile) {
         return null;
     }
-    return profile.role as 'admin' | 'partner';
+    return profile.role as 'admin' | 'partner' | 'non_client';
 }
 
 export default async function ChatPage({ params }: { params: { agentPath: string, conversationId?: string[] } }) {
