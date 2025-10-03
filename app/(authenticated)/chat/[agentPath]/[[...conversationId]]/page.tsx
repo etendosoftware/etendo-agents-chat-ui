@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { getConversationHistory, getMessagesForConversation } from '@/lib/actions/chat';
+import { canUserAccessAgent } from '@/lib/agents/access';
 import ChatLayout from '@/components/chat-layout';
 import { Agent } from '@/components/chat-interface';
 import { randomUUID } from 'crypto';
@@ -77,23 +78,8 @@ export default async function ChatPage({ params }: { params: { agentPath: string
 
     const userRole = user ? await getUserRole(supabaseClient, user.id) : null;
 
-    const hasAccess = () => {
-        if (agent.access_level === 'public') {
-            return !user;
-        }
-        if (agent.access_level === 'non_client') {
-            return !!user && (userRole === 'non_client' || userRole === 'admin');
-        }
-        if (agent.access_level === 'partner') {
-            return userRole === 'partner' || userRole === 'admin';
-        }
-        if (agent.access_level === 'admin') {
-            return userRole === 'admin';
-        }
-        return false;
-    };
-
-    if (!hasAccess()) {
+    const isAuthenticated = Boolean(user);
+    if (!canUserAccessAgent({ accessLevel: agent.access_level, userRole, isAuthenticated })) {
         return (
             <div className="p-4 flex flex-col items-center justify-center h-full">
                 <h1 className="text-2xl font-bold mb-4">Access Denied</h1>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Agent } from '@/components/chat-interface';
+import { shouldListAgentOnHome } from '@/lib/agents/access';
 
 async function getUserRole(supabaseClient: any, userId: string) {
     const { data: profile, error } = await supabaseClient
@@ -43,21 +44,7 @@ export default async function Home() {
         return <p>Error loading agents.</p>;
     }
 
-    const filteredAgents = agents.filter(agent => {
-        if (agent.access_level === 'public') {
-            return false;
-        }
-        if (agent.access_level === 'non_client') {
-            return userRole === 'non_client' || userRole === 'admin';
-        }
-        if (agent.access_level === 'partner') {
-            return userRole === 'partner' || userRole === 'admin';
-        }
-        if (agent.access_level === 'admin') {
-            return userRole === 'admin';
-        }
-        return false;
-    });
+    const filteredAgents = agents.filter(agent => shouldListAgentOnHome(agent.access_level, userRole));
 
     return (
         <div className='p-8'>
