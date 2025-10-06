@@ -1,0 +1,46 @@
+{
+  "title": "Admin Panel",
+  "agents": {
+    "title": "Configured agents",
+    "new": "New Agent",
+    "edit": "Edit agent",
+    "create": "Create new agent",
+    "errors": {
+      "loading": "Error loading agents.",
+      "create": "The agent could not be created: {message}",
+      "update": "The agent could not be updated: {message}",
+      "delete": "The agent could not be removed."
+    },
+    "success": {
+      "create": "{name} has been created successfully.",
+      "update": "{name} has been updated successfully.",
+      "delete": "The agent has been successfully removed."
+    }
+  },
+  "editor": {
+    "name": "Agent name",
+    "description": "Description",
+    "webhookUrl": "Webhook URL",
+    "path": "Agent Path",
+    "icon": "Icon (Emoji)",
+    "accessLevel": {
+      "label": "Access Level",
+      "placeholder": "Select an access level",
+      "options": {
+        "public": "Public",
+        "non_client": "Non Client",
+        "partner": "Partner",
+        "admin": "Admin"
+      }
+    },
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "toast": {
+    "error": "Error",
+    "success": "Success",
+    "agentCreated": "Agent created",
+    "agentUpdated": "Agent updated",
+    "agentDeleted": "Agent deleted"
+  }
+}

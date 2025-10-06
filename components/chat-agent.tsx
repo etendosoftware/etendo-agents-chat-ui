@@ -220,7 +220,7 @@ export default function ChatAgent({ agent }: ChatAgentProps) {
         {/* Header del Chat */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <Link href="/">
+            <Link href={localePrefix}>
               <Button variant="ghost" size="sm" className="text-white hover:bg-white/10">
                 <ArrowLeft className="w-4 h-4" />
               </Button>

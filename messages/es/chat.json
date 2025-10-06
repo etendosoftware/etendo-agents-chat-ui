@@ -1,0 +1,72 @@
+{
+  "metadata": {
+    "title": "Chat | Agentes de Etendo",
+    "description": "Interactúa con los agentes de IA de Etendo.",
+    "agentTitle": "{agentName} | Agentes de Etendo",
+    "agentDescription": "Interactúa con un agente de IA de Etendo.",
+    "failed": "Error al generar los metadatos del agente:"
+  },
+  "errors": {
+    "agentNotFound": "Agente no encontrado",
+    "accessDenied": {
+      "title": "Acceso denegado",
+      "message": "No tienes permiso para acceder a este agente."
+    },
+    "delete": "Error al eliminar la conversación.",
+    "update": "Error al actualizar el título.",
+    "connection": "Error de conexión",
+    "connect": "No se pudo conectar con {agentName}. {error}",
+    "unknown": "Error desconocido",
+    "emptyBody": "El cuerpo de la respuesta está vacío"
+  },
+  "history": {
+    "newChat": "Nuevo chat",
+    "searchPlaceholder": "Buscar conversaciones...",
+    "title": "Historial",
+    "loadMore": "Cargar más",
+    "editTitle": "Editar título",
+    "delete": "Eliminar",
+    "deleteDialog": {
+      "title": "¿Estás seguro?",
+      "description": "Esta acción no se puede deshacer. Esto eliminará permanentemente esta conversación.",
+      "cancel": "Cancelar",
+      "continue": "Continuar"
+    },
+    "editDialog": {
+      "title": "Editar título de la conversación",
+      "placeholder": "Introduce el nuevo título",
+      "cancel": "Cancelar",
+      "save": "Guardar"
+    },
+    "success": {
+        "delete": "Conversación eliminada.",
+        "update": "Título actualizado."
+    },
+    "toast": {
+        "success": "Éxito",
+        "error": "Error"
+    }
+  },
+  "interface": {
+    "audioMessage": "[Mensaje de audio]",
+    "attachments": "[Archivos adjuntos]",
+    "thinking": "Pensando...",
+    "videoAnalysis": "(Análisis de video)",
+    "messagePlaceholder": "Escribe un mensaje aquí...",
+    "greeting": "¡Hola! Soy el {agentName}",
+    "toast": {
+        "sent": "Mensaje enviado",
+        "received": "Respuesta recibida de {agentName}"
+    }
+  },
+  "feedback": {
+    "thanks": "¡Gracias por tus comentarios!",
+    "dialog": {
+      "title": "Proporciona comentarios adicionales",
+      "description": "Tus comentarios nos ayudan a mejorar el agente.",
+      "placeholder": "¿Qué no te gustó de esta respuesta?",
+      "cancel": "Cancelar",
+      "submit": "Enviar comentarios"
+    }
+  }
+}

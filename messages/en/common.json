@@ -1,0 +1,20 @@
+{
+  "brand": "Etendo Agents",
+  "navigation": {
+    "home": "Home",
+    "adminPanel": "Admin Panel",
+    "login": "Login",
+    "logout": "Logout",
+    "language": "Language",
+    "english": "English",
+    "spanish": "Spanish"
+  },
+  "actions": {
+    "chat": "Chat",
+    "newAgent": "New Agent"
+  },
+  "messages": {
+    "noAgents": "There are no agents available for you at this time.",
+    "loadingError": "Error loading agents."
+  }
+}

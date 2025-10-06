@@ -48,24 +48,24 @@ describe('auth callback route', () => {
   })
 
   it('updates profile role based on Jira response and redirects home', async () => {
-    const { GET } = await import('../app/auth/callback/route')
-    const request = new Request('https://app.com/auth/callback?code=abc')
+    const { GET } = await import('../app/[locale]/auth/callback/route')
+    const request = new Request('https://app.com/en/auth/callback?code=abc')
 
-    const response = await GET(request)
+    const response = await GET(request, { params: { locale: 'en' } })
 
     expect(exchangeCodeMock).toHaveBeenCalledWith('abc')
     expect(updateMock).toHaveBeenCalledWith({ role: 'partner' })
     expect(updateEqMock).toHaveBeenCalledWith('id', 'user-1')
-    expect(response.headers.get('location')).toBe('https://app.com/')
+    expect(response.headers.get('location')).toBe('https://app.com/en')
   })
 
   it('skips role update for admin profiles', async () => {
     selectSingleMock.mockResolvedValueOnce({ data: { role: 'admin' }, error: null })
 
-    const { GET } = await import('../app/auth/callback/route')
-    const request = new Request('https://app.com/auth/callback?code=abc')
+    const { GET } = await import('../app/[locale]/auth/callback/route')
+    const request = new Request('https://app.com/en/auth/callback?code=abc')
 
-    await GET(request)
+    await GET(request, { params: { locale: 'en' } })
 
     expect(updateMock).not.toHaveBeenCalled()
   })
@@ -73,11 +73,11 @@ describe('auth callback route', () => {
   it('redirects to login on exchange error', async () => {
     exchangeCodeMock.mockResolvedValueOnce({ data: { session: null }, error: { message: 'invalid' } })
 
-    const { GET } = await import('../app/auth/callback/route')
-    const request = new Request('https://app.com/auth/callback?code=bad')
+    const { GET } = await import('../app/[locale]/auth/callback/route')
+    const request = new Request('https://app.com/en/auth/callback?code=bad')
 
-    const response = await GET(request)
+    const response = await GET(request, { params: { locale: 'en' } })
 
-    expect(response.headers.get('location')).toBe('https://app.com/auth/login?error=oauth_failed')
+    expect(response.headers.get('location')).toBe('https://app.com/en/auth/login?error=oauth_failed')
   })
 })
