@@ -8,6 +8,7 @@ import { Agent } from '@/components/chat-interface';
 import { randomUUID } from 'crypto';
 import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
+import { defaultLocale } from '@/i18n/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,7 @@ export async function generateMetadata({ params }: { params: { locale: string; a
         const supabaseClient = createClient();
         const { data: agent } = await supabaseClient
             .from('agents')
-            .select('name, description, path')
+            .select('id, name, description, path')
             .eq('path', `/${params.agentPath}`)
             .maybeSingle();
 
@@ -28,12 +29,22 @@ export async function generateMetadata({ params }: { params: { locale: string; a
             };
         }
 
+        const { data: translation } = await supabaseClient
+            .from('agent_translations')
+            .select('name, description')
+            .eq('agent_id', agent.id)
+            .eq('locale', params.locale)
+            .maybeSingle();
+
+        const localizedName = translation?.name ?? agent.name;
+        const localizedDescription = translation?.description ?? agent.description ?? t('metadata.agentDescription');
+
         return {
-            title: t('metadata.agentTitle', { agentName: agent.name }),
-            description: agent.description ?? t('metadata.agentDescription'),
+            title: t('metadata.agentTitle', { agentName: localizedName }),
+            description: localizedDescription,
             openGraph: {
-                title: t('metadata.agentTitle', { agentName: agent.name }),
-                description: agent.description ?? t('metadata.agentDescription'),
+                title: t('metadata.agentTitle', { agentName: localizedName }),
+                description: localizedDescription,
                 url: `/${params.locale}/chat/${params.agentPath}`,
             },
         };
@@ -94,6 +105,39 @@ export default async function ChatPage({ params }: { params: { locale: string; a
             </div>
         );
     }
+    const { data: translation } = await supabaseClient
+        .from('agent_translations')
+        .select('name, description')
+        .eq('agent_id', agent.id)
+        .eq('locale', params.locale)
+        .maybeSingle();
+
+    const { data: localePrompts } = await supabaseClient
+        .from('agent_prompts')
+        .select('id, locale, content, sort_order')
+        .eq('agent_id', agent.id)
+        .eq('locale', params.locale)
+        .order('sort_order', { ascending: true });
+
+    let prompts = localePrompts ?? [];
+
+    if ((!prompts || prompts.length === 0) && params.locale !== defaultLocale) {
+        const { data: fallbackPrompts } = await supabaseClient
+            .from('agent_prompts')
+            .select('id, locale, content, sort_order')
+            .eq('agent_id', agent.id)
+            .eq('locale', defaultLocale)
+            .order('sort_order', { ascending: true });
+
+        prompts = fallbackPrompts ?? [];
+    }
+
+    const localizedAgent: Agent = {
+        ...agent,
+        name: translation?.name ?? agent.name,
+        description: translation?.description ?? agent.description,
+    };
+
     const initialConversations = user ? await getConversationHistory(user.email!, agent.id, { limit: 10 }) : [];
 
     let initialMessages: any[] = [];
@@ -114,10 +158,9 @@ export default async function ChatPage({ params }: { params: { locale: string; a
       conversationId: conversationId,
     }));
 
-
     return (
         <ChatLayout
-            agent={agent as Agent}
+            agent={localizedAgent}
             user={user}
             conversationId={conversationId}
             initialMessages={transformedMessages}
@@ -125,6 +168,10 @@ export default async function ChatPage({ params }: { params: { locale: string; a
             initialConversations={initialConversations}
             agentPath={params.agentPath}
             userRole={userRole}
+            initialPrompts={prompts.map((prompt, index) => ({
+                id: prompt.id ?? `prompt-${index}`,
+                content: prompt.content,
+            }))}
         />
     );
 }

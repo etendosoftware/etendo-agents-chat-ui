@@ -4,7 +4,7 @@
 import { useEffect } from 'react';
 import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { SidebarConversations } from '@/components/conversation-history-content';
-import ChatInterface, { Agent } from '@/components/chat-interface';
+import ChatInterface, { Agent, AgentPromptSuggestion } from '@/components/chat-interface';
 import { User } from '@supabase/supabase-js';
 import { Conversation } from '@/lib/actions/chat';
 import { GlobalHeader } from './global-header';
@@ -24,6 +24,7 @@ interface ChatLayoutProps {
   initialConversations: Conversation[];
   agentPath: string;
   userRole: string | null;
+  initialPrompts?: AgentPromptSuggestion[];
 }
 
 export default function ChatLayout({ 
@@ -34,7 +35,8 @@ export default function ChatLayout({
   initialSessionId, 
   initialConversations, 
   agentPath, 
-  userRole 
+  userRole,
+  initialPrompts = [],
 }: ChatLayoutProps) {
   useEffect(() => {
     if (typeof window === 'undefined' || !window.gtag) {
@@ -67,6 +69,7 @@ export default function ChatLayout({
             conversationId={conversationId}
             initialMessages={initialMessages}
             initialSessionId={initialSessionId}
+            initialPrompts={initialPrompts}
           />
         </main>
       </div>
@@ -105,6 +108,7 @@ export default function ChatLayout({
               conversationId={conversationId}
               initialMessages={initialMessages}
               initialSessionId={initialSessionId}
+              initialPrompts={initialPrompts}
             />
           </SidebarInset>
         </SidebarProvider>

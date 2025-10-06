@@ -9,7 +9,8 @@
       "loading": "Error al cargar los agentes.",
       "create": "No se pudo crear el agente: {message}",
       "update": "No se pudo actualizar el agente: {message}",
-      "delete": "No se pudo eliminar el agente."
+      "delete": "No se pudo eliminar el agente.",
+      "nameRequired": "Debes indicar un nombre para el idioma predeterminado."
     },
     "success": {
       "create": "{name} se ha creado correctamente.",
@@ -20,9 +21,21 @@
   "editor": {
     "name": "Nombre del agente",
     "description": "Descripción",
+    "translations": "Traducciones",
+    "prompts": {
+      "title": "Prompts iniciales",
+      "empty": "No hay prompts definidos para este idioma.",
+      "add": "Agregar prompt",
+      "moveUp": "Mover prompt hacia arriba",
+      "moveDown": "Mover prompt hacia abajo",
+      "delete": "Eliminar prompt",
+      "itemLabel": "Prompt {index} ({locale})",
+      "placeholder": "Escribe un prompt..."
+    },
     "webhookUrl": "URL del Webhook",
     "path": "Ruta del agente",
     "icon": "Icono (Emoji)",
+    "color": "Color",
     "accessLevel": {
       "label": "Nivel de acceso",
       "placeholder": "Selecciona un nivel de acceso",
