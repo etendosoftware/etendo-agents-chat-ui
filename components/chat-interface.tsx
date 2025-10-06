@@ -38,6 +38,11 @@ export interface Agent {
   access_level: "public" | "non_client" | "partner" | "admin"
 }
 
+export interface AgentPromptSuggestion {
+  id?: string
+  content: string
+}
+
 export interface Message {
   id: string
   content: string
@@ -60,6 +65,7 @@ interface ChatInterfaceProps {
   initialMessages: Message[]
   conversationId?: string
   initialSessionId?: string | null
+  initialPrompts?: AgentPromptSuggestion[]
 }
 
 export default function ChatInterface({
@@ -68,6 +74,7 @@ export default function ChatInterface({
   initialMessages,
   conversationId,
   initialSessionId,
+  initialPrompts,
 }: ChatInterfaceProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -86,6 +93,9 @@ export default function ChatInterface({
   const [isVideoAnalysis, setIsVideoAnalysis] = useState(false)
   const [sessionId, setSessionId] = useState<string>("")
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null)
+  const [promptSuggestions, setPromptSuggestions] = useState<AgentPromptSuggestion[]>(
+    () => initialPrompts ?? [],
+  )
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
 
@@ -103,6 +113,12 @@ export default function ChatInterface({
   useEffect(() => {
     setMessages(initialMessages as Message[])
   }, [initialMessages])
+
+  useEffect(() => {
+    if (initialPrompts) {
+      setPromptSuggestions(initialPrompts)
+    }
+  }, [initialPrompts])
 
   useEffect(() => {
     const getUserAvatar = async () => {
@@ -135,6 +151,10 @@ export default function ChatInterface({
       (!content.trim() && files.length === 0 && !audioBlob)
     )
       return
+
+    if (promptSuggestions.length > 0) {
+      setPromptSuggestions([])
+    }
 
     const conversationKey = conversationId || sessionId || `temp-${Date.now()}`;
     const userMessageIndex = messages.length;
@@ -338,6 +358,13 @@ export default function ChatInterface({
     sendMessage("", [], audioBlob)
   }
 
+  const handlePromptClick = (prompt: AgentPromptSuggestion) => {
+    if (!prompt.content.trim()) {
+      return
+    }
+    sendMessage(prompt.content, [])
+  }
+
   return (
     <div className="h-full w-full">
       <div className="w-full h-full">
@@ -359,12 +386,30 @@ export default function ChatInterface({
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="text-4xl mb-4">{selectedAgent.icon}</div>
-                  <h3 className="text-lg font-semibold text-card-foreground mb-2">
-                    {t('greeting', { agentName: selectedAgent.name })}
-                  </h3>
-                  <p className="text-muted-foreground">{selectedAgent.description}</p>
+                <div className="text-center max-w-lg space-y-6">
+                  <div>
+                    <div className="text-4xl mb-4">{selectedAgent.icon}</div>
+                    <h3 className="text-lg font-semibold text-card-foreground mb-2">
+                      {t('greeting', { agentName: selectedAgent.name })}
+                    </h3>
+                    <p className="text-muted-foreground">{selectedAgent.description}</p>
+                  </div>
+                  {promptSuggestions.length > 0 && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {promptSuggestions.map((prompt, index) => (
+                        <button
+                          key={prompt.id ?? `prompt-${index}`}
+                          type="button"
+                          onClick={() => handlePromptClick(prompt)}
+                          className="text-left rounded-xl border border-border/60 bg-white/70 px-4 py-3 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        >
+                          <span className="block text-sm text-card-foreground line-clamp-3">
+                            {prompt.content}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

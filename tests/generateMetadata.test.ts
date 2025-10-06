@@ -2,10 +2,32 @@ import { generateMetadata } from '../app/[locale]/(authenticated)/chat/[agentPat
 import { vi } from 'vitest'
 import { createTranslator } from './utils/intl'
 
-const maybeSingleMock = vi.hoisted(() => vi.fn())
-const eqMock = vi.hoisted(() => vi.fn(() => ({ maybeSingle: maybeSingleMock })))
-const selectMock = vi.hoisted(() => vi.fn(() => ({ eq: eqMock })))
-const fromMock = vi.hoisted(() => vi.fn(() => ({ select: selectMock })))
+const agentsMaybeSingleMock = vi.hoisted(() => vi.fn())
+const translationsMaybeSingleMock = vi.hoisted(() => vi.fn())
+
+const agentSelectMock = vi.hoisted(() => vi.fn(() => ({
+  eq: vi.fn(() => ({ maybeSingle: agentsMaybeSingleMock })),
+})))
+
+const translationSelectMock = vi.hoisted(() => vi.fn(() => ({
+  eq: vi.fn(() => ({
+    eq: vi.fn(() => ({ maybeSingle: translationsMaybeSingleMock })),
+  })),
+})))
+
+const fromMock = vi.hoisted(() =>
+  vi.fn((table: string) => {
+    if (table === 'agents') {
+      return { select: agentSelectMock }
+    }
+
+    if (table === 'agent_translations') {
+      return { select: translationSelectMock }
+    }
+
+    return { select: vi.fn() }
+  })
+)
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => ({
@@ -19,20 +41,23 @@ vi.mock('next-intl/server', () => ({
 
 describe('generateMetadata', () => {
   beforeEach(() => {
-    maybeSingleMock.mockReset()
-    eqMock.mockClear()
-    selectMock.mockClear()
+    agentsMaybeSingleMock.mockReset()
+    translationsMaybeSingleMock.mockReset()
+    agentSelectMock.mockClear()
+    translationSelectMock.mockClear()
     fromMock.mockClear()
   })
 
   it('returns agent specific metadata when agent exists', async () => {
-    maybeSingleMock.mockResolvedValue({
+    agentsMaybeSingleMock.mockResolvedValue({
       data: {
+        id: 'agent-1',
         name: 'Support Agent',
         description: 'Assists with tickets',
         path: '/support',
       },
     })
+    translationsMaybeSingleMock.mockResolvedValue({ data: null })
 
     const metadata = await generateMetadata({ params: { locale: 'en', agentPath: 'support' } })
 
@@ -45,7 +70,7 @@ describe('generateMetadata', () => {
   })
 
   it('falls back to generic metadata when agent is missing', async () => {
-    maybeSingleMock.mockResolvedValue({ data: null })
+    agentsMaybeSingleMock.mockResolvedValue({ data: null })
 
     const metadata = await generateMetadata({ params: { locale: 'en', agentPath: 'unknown' } })
 
@@ -54,7 +79,7 @@ describe('generateMetadata', () => {
   })
 
   it('handles supabase errors gracefully', async () => {
-    maybeSingleMock.mockRejectedValue(new Error('boom'))
+    agentsMaybeSingleMock.mockRejectedValue(new Error('boom'))
 
     const metadata = await generateMetadata({ params: { locale: 'en', agentPath: 'error' } })
 

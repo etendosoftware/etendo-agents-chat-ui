@@ -3,11 +3,12 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card } from "@/components/ui/card"
 import type { AgentSelectorProps } from "./agent-selector-props"
+import { Agent } from "./chat-interface"
 
 export default function AgentSelector({ agents, selectedAgent, onSelectAgent }: AgentSelectorProps) {
   return (
     <div className="space-y-3">
-      {agents.map((agent) => (
+      {agents.map((agent: Agent) => (
         <Card
           key={agent.id}
           className={`p-3 cursor-pointer transition-all hover:scale-105 ${

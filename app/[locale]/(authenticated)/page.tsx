@@ -54,7 +54,33 @@ export default async function Home({ params }: { params: { locale: Locale } }) {
         return <p>{tCommon('messages.loadingError')}</p>;
     }
 
-    const filteredAgents = agents.filter(agent => shouldListAgentOnHome(agent.access_level, userRole));
+    const agentIds = agents?.map(agent => agent.id) ?? [];
+    let translationsMap = new Map<string, { name: string; description: string | null }>();
+
+    if (agentIds.length > 0) {
+        const { data: translations, error: translationsError } = await supabaseClient
+            .from('agent_translations')
+            .select('agent_id, name, description')
+            .eq('locale', locale)
+            .in('agent_id', agentIds);
+
+        if (!translationsError && translations) {
+            translationsMap = new Map(
+                translations.map((translation) => [translation.agent_id, { name: translation.name, description: translation.description }])
+            );
+        }
+    }
+
+    const localizedAgents = agents.map(agent => {
+        const translation = translationsMap.get(agent.id);
+        return {
+            ...agent,
+            name: translation?.name ?? agent.name,
+            description: translation?.description ?? agent.description,
+        };
+    });
+
+    const filteredAgents = localizedAgents.filter(agent => shouldListAgentOnHome(agent.access_level, userRole));
 
     return (
         <div className='p-8'>
