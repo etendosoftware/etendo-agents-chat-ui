@@ -1,44 +1,139 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Edit, Trash2, Save } from 'lucide-react';
-import Link from 'next/link';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabaseClient';
-import { useTranslations } from 'next-intl';
+import { useEffect, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Edit, Trash2, Save, ArrowUp, ArrowDown } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabaseClient";
+import { useTranslations } from "next-intl";
+import type { Locale } from "@/i18n/config";
 
-interface Agent {
-  id: string;
+type AccessLevel = "public" | "non_client" | "partner" | "admin";
+
+interface AgentTranslation {
   name: string;
   description: string;
+}
+
+type AgentTranslations = Record<Locale, AgentTranslation>;
+
+interface AgentPrompt {
+  id?: string;
+  content: string;
+  sort_order: number;
+}
+
+type AgentPrompts = Record<Locale, AgentPrompt[]>;
+
+interface AdminAgent {
+  id: string;
   webhookurl: string;
   path: string;
   color: string;
   icon: string;
-  access_level: 'public' | 'non_client' | 'partner' | 'admin';
+  access_level: AccessLevel;
+  translations: AgentTranslations;
+  prompts: AgentPrompts;
 }
 
 interface AdminPanelClientProps {
-  initialAgents: Agent[];
+  initialAgents: AdminAgent[];
+  locales: Locale[];
+  defaultLocale: Locale;
+  displayLocale: Locale;
 }
 
-export function AdminPanelClient({ initialAgents }: AdminPanelClientProps) {
-  const [agents, setAgents] = useState<Agent[]>(initialAgents);
-  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
+const createEmptyTranslations = (localeList: Locale[]): AgentTranslations =>
+  localeList.reduce((acc, locale) => {
+    acc[locale] = { name: "", description: "" };
+    return acc;
+  }, {} as AgentTranslations);
+
+const cloneTranslations = (translations: AgentTranslations, localeList: Locale[]): AgentTranslations =>
+  localeList.reduce((acc, locale) => {
+    const source = translations?.[locale];
+    acc[locale] = {
+      name: source?.name ?? "",
+      description: source?.description ?? "",
+    };
+    return acc;
+  }, {} as AgentTranslations);
+
+const createEmptyPrompts = (localeList: Locale[]): AgentPrompts =>
+  localeList.reduce((acc, locale) => {
+    acc[locale] = [];
+    return acc;
+  }, {} as AgentPrompts);
+
+const clonePrompts = (prompts: AgentPrompts, localeList: Locale[]): AgentPrompts =>
+  localeList.reduce((acc, locale) => {
+    const sourceList = prompts?.[locale] ?? [];
+    acc[locale] = sourceList.map((prompt) => ({ ...prompt }));
+    return acc;
+  }, {} as AgentPrompts);
+
+export function AdminPanelClient({ initialAgents, locales, defaultLocale, displayLocale }: AdminPanelClientProps) {
   const { toast } = useToast();
   const t = useTranslations('admin');
+  const [agents, setAgents] = useState<AdminAgent[]>(initialAgents);
+  const [editingAgent, setEditingAgent] = useState<AdminAgent | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
-  const handleSave = async (agent: Agent) => {
-    const agentData = {
-      name: agent.name,
-      description: agent.description,
+  const getDisplayTranslation = (agent: AdminAgent) => {
+    const current = agent.translations[displayLocale];
+    if (current?.name?.trim()) {
+      return current;
+    }
+    return agent.translations[defaultLocale] ?? { name: '', description: '' };
+  };
+
+  const prepareAgentForEditing = (agent: AdminAgent): AdminAgent => ({
+    ...agent,
+    translations: cloneTranslations(agent.translations, locales),
+    prompts: clonePrompts(agent.prompts, locales),
+  });
+
+  const upsertTranslations = async (agentId: string, translations: AgentTranslations) =>
+    supabase
+      .from('agent_translations')
+      .upsert(
+        locales.map((locale) => ({
+          agent_id: agentId,
+          locale,
+          name: translations[locale]?.name ?? '',
+          description: translations[locale]?.description ?? '',
+        })),
+        { onConflict: 'agent_id,locale' },
+      );
+
+  const preparePromptPayload = (agentId: string, prompts: AgentPrompts) =>
+    locales.flatMap((locale) =>
+      (prompts[locale] ?? [])
+        .map((prompt, index) => ({
+          agent_id: agentId,
+          locale,
+          content: prompt.content.trim(),
+          sort_order: index,
+        }))
+        .filter((prompt) => prompt.content.length > 0),
+    );
+
+  const handleSave = async (agent: AdminAgent) => {
+    const defaultTranslation = agent.translations[defaultLocale];
+    if (!defaultTranslation?.name?.trim()) {
+      toast({ title: t('toast.error'), description: t('agents.errors.nameRequired') });
+      return;
+    }
+
+    const agentPayload = {
+      name: defaultTranslation.name,
+      description: defaultTranslation.description,
       webhookurl: agent.webhookurl,
       path: agent.path,
       color: agent.color,
@@ -47,24 +142,118 @@ export function AdminPanelClient({ initialAgents }: AdminPanelClientProps) {
     };
 
     if (isCreating) {
-      const { data, error } = await supabase.from('agents').insert([agentData]).select();
-      if (error) {
-        toast({ title: t('toast.error'), description: t('agents.errors.create', { message: error.message }) });
-      } else {
-        setAgents((prev) => [...prev, ...(data as Agent[])]);
-        setIsCreating(false);
-        setEditingAgent(null);
-        toast({ title: t('toast.agentCreated'), description: t('agents.success.create', { name: agent.name }) });
+      const { data: createdAgents, error: createError } = await supabase
+        .from('agents')
+        .insert([agentPayload])
+        .select();
+
+      const createdAgent = createdAgents?.[0];
+
+      if (createError || !createdAgent) {
+        toast({
+          title: t('toast.error'),
+          description: t('agents.errors.create', { message: createError?.message ?? 'unknown' }),
+        });
+        return;
       }
+
+      const { error: translationError } = await upsertTranslations(createdAgent.id, agent.translations);
+      if (translationError) {
+        toast({
+          title: t('toast.error'),
+          description: t('agents.errors.update', { message: translationError.message }),
+        });
+        return;
+      }
+
+      const promptPayload = preparePromptPayload(createdAgent.id, agent.prompts);
+      if (promptPayload.length > 0) {
+        const { error: promptInsertError } = await supabase.from('agent_prompts').insert(promptPayload);
+        if (promptInsertError) {
+          toast({
+            title: t('toast.error'),
+            description: t('agents.errors.update', { message: promptInsertError.message }),
+          });
+          return;
+        }
+      }
+
+      const normalizedAgent: AdminAgent = {
+        id: createdAgent.id,
+        webhookurl: agent.webhookurl,
+        path: agent.path,
+        color: agent.color,
+        icon: agent.icon,
+        access_level: agent.access_level,
+        translations: cloneTranslations(agent.translations, locales),
+        prompts: clonePrompts(agent.prompts, locales),
+      };
+
+      setAgents((prev) => [...prev, normalizedAgent]);
+      setIsCreating(false);
+      setEditingAgent(null);
+      toast({ title: t('toast.agentCreated'), description: t('agents.success.create', { name: defaultTranslation.name }) });
     } else {
-      const { data, error } = await supabase.from('agents').update(agentData).eq('id', agent.id).select();
-      if (error) {
-        toast({ title: t('toast.error'), description: t('agents.errors.update', { message: error.message }) });
-      } else {
-        setAgents((prev) => prev.map((a) => (a.id === agent.id ? (data ? data[0] : agent) : a)));
-        setEditingAgent(null);
-        toast({ title: t('toast.agentUpdated'), description: t('agents.success.update', { name: agent.name }) });
+      const { data: updatedAgents, error: updateError } = await supabase
+        .from('agents')
+        .update(agentPayload)
+        .eq('id', agent.id)
+        .select();
+
+      const updatedAgent = updatedAgents?.[0];
+
+      if (updateError || !updatedAgent) {
+        toast({
+          title: t('toast.error'),
+          description: t('agents.errors.update', { message: updateError?.message ?? 'unknown' }),
+        });
+        return;
       }
+
+      const { error: translationError } = await upsertTranslations(agent.id, agent.translations);
+      if (translationError) {
+        toast({
+          title: t('toast.error'),
+          description: t('agents.errors.update', { message: translationError.message }),
+        });
+        return;
+      }
+
+      const promptPayload = preparePromptPayload(agent.id, agent.prompts);
+      const { error: promptDeleteError } = await supabase.from('agent_prompts').delete().eq('agent_id', agent.id);
+      if (promptDeleteError) {
+        toast({
+          title: t('toast.error'),
+          description: t('agents.errors.update', { message: promptDeleteError.message }),
+        });
+        return;
+      }
+
+      if (promptPayload.length > 0) {
+        const { error: promptInsertError } = await supabase.from('agent_prompts').insert(promptPayload);
+        if (promptInsertError) {
+          toast({
+            title: t('toast.error'),
+            description: t('agents.errors.update', { message: promptInsertError.message }),
+          });
+          return;
+        }
+      }
+
+      const normalizedAgent: AdminAgent = {
+        id: agent.id,
+        webhookurl: agent.webhookurl,
+        path: agent.path,
+        color: agent.color,
+        icon: agent.icon,
+        access_level: agent.access_level,
+        translations: cloneTranslations(agent.translations, locales),
+        prompts: clonePrompts(agent.prompts, locales),
+      };
+
+      setAgents((prev) => prev.map((item) => (item.id === agent.id ? normalizedAgent : item)));
+      setEditingAgent(null);
+      toast({ title: t('toast.agentUpdated'), description: t('agents.success.update', { name: defaultTranslation.name }) });
     }
   };
 
@@ -73,7 +262,7 @@ export function AdminPanelClient({ initialAgents }: AdminPanelClientProps) {
     if (error) {
       toast({ title: t('toast.error'), description: t('agents.errors.delete') });
     } else {
-      setAgents((prev) => prev.filter((a) => a.id !== agentId));
+      setAgents((prev) => prev.filter((agent) => agent.id !== agentId));
       toast({ title: t('toast.agentDeleted'), description: t('agents.success.delete') });
     }
   };
@@ -81,41 +270,43 @@ export function AdminPanelClient({ initialAgents }: AdminPanelClientProps) {
   const startCreating = () => {
     setIsCreating(true);
     setEditingAgent({
-      id: "",
-      name: "",
-      description: "",
-      webhookurl: "",
-      path: "/",
-      color: "agent-support",
-      icon: "🤖",
+      id: '',
+      webhookurl: '',
+      path: '/',
+      color: 'agent-support',
+      icon: '🤖',
       access_level: 'public',
+      translations: createEmptyTranslations(locales),
+      prompts: createEmptyPrompts(locales),
     });
   };
 
   return (
     <main className="p-4 md:p-8">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-          <h1 className="text-2xl md:text-4xl font-bold text-gray-900">{t('title')}</h1>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <h1 className="text-2xl md:text-4xl font-bold text-gray-900">{t('title')}</h1>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="p-4 md:p-6 bg-white shadow-lg">
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-              <h2 className="text-xl md:text-2xl font-semibold text-gray-900">{t('agents.title')}</h2>
-              <Button onClick={startCreating} className="bg-blue-600 hover:bg-blue-700 text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                {t('agents.new')}
-              </Button>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-h-[80vh]">
+        <Card className="p-4 md:p-6 bg-white shadow-lg overflow-y-scroll">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <h2 className="text-xl md:text-2xl font-semibold text-gray-900">{t('agents.title')}</h2>
+            <Button onClick={startCreating} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              {t('agents.new')}
+            </Button>
+          </div>
 
-            <div className="space-y-4">
-              {agents.map((agent) => (
+          <div className="space-y-4">
+            {agents.map((agent) => {
+              const translation = getDisplayTranslation(agent);
+              return (
                 <div key={agent.id} className="p-4 rounded-lg border border-gray-200 bg-gray-50">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{agent.icon}</span>
                       <div>
-                        <h3 className="font-semibold text-gray-900">{agent.name}</h3>
+                        <h3 className="font-semibold text-gray-900">{translation.name || '—'}</h3>
                         <p className="text-sm text-gray-600">{agent.path}</p>
                       </div>
                     </div>
@@ -123,7 +314,10 @@ export function AdminPanelClient({ initialAgents }: AdminPanelClientProps) {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setEditingAgent(agent)}
+                        onClick={() => {
+                          setEditingAgent(prepareAgentForEditing(agent));
+                          setIsCreating(false);
+                        }}
                         className="text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                       >
                         <Edit className="w-4 h-4" />
@@ -139,74 +333,221 @@ export function AdminPanelClient({ initialAgents }: AdminPanelClientProps) {
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        {editingAgent && (
+          <Card className="p-4 md:p-6 bg-white shadow-lg overflow-y-auto">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+              {isCreating ? t('agents.create') : t('agents.edit')}
+            </h2>
+
+            <AgentEditor
+              agent={editingAgent}
+              locales={locales}
+              defaultLocale={defaultLocale}
+              onSave={async (updatedAgent) => {
+                await handleSave(updatedAgent);
+              }}
+              onCancel={() => {
+                setEditingAgent(null);
+                setIsCreating(false);
+              }}
+            />
           </Card>
-
-          {editingAgent && (
-            <Card className="p-4 md:p-6 bg-white shadow-lg">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-6">
-                {isCreating ? t('agents.create') : t('agents.edit')}
-              </h2>
-
-              <AgentEditor
-                agent={editingAgent}
-                onSave={handleSave}
-                onCancel={() => {
-                  setEditingAgent(null);
-                  setIsCreating(false);
-                }}
-              />
-            </Card>
-          )}
-        </div>
+        )}
+      </div>
     </main>
   );
 }
 
 interface AgentEditorProps {
-  agent: Agent;
-  onSave: (agent: Agent) => void;
+  agent: AdminAgent;
+  locales: Locale[];
+  defaultLocale: Locale;
+  onSave: (agent: AdminAgent) => void;
   onCancel: () => void;
 }
 
-function AgentEditor({ agent, onSave, onCancel }: AgentEditorProps) {
-  const [formData, setFormData] = useState(agent);
+function AgentEditor({ agent, locales, defaultLocale, onSave, onCancel }: AgentEditorProps) {
+  const [formData, setFormData] = useState<AdminAgent>(() => ({
+    ...agent,
+    translations: cloneTranslations(agent.translations, locales),
+    prompts: clonePrompts(agent.prompts, locales),
+  }));
   const t = useTranslations('admin.editor');
 
   useEffect(() => {
-    setFormData(agent);
-  }, [agent]);
+    setFormData({
+      ...agent,
+      translations: cloneTranslations(agent.translations, locales),
+      prompts: clonePrompts(agent.prompts, locales),
+    });
+  }, [agent, locales]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     onSave(formData);
   };
 
+  const updateTranslation = (locale: Locale, field: keyof AgentTranslation, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      translations: {
+        ...prev.translations,
+        [locale]: {
+          ...prev.translations[locale],
+          [field]: value,
+        },
+      },
+    }));
+  };
+
+  const updatePrompts = (locale: Locale, updater: (current: AgentPrompt[]) => AgentPrompt[]) => {
+    setFormData((prev) => {
+      const current = prev.prompts[locale] ?? [];
+      const updated = updater(current).map((prompt, index) => ({
+        ...prompt,
+        sort_order: index,
+      }));
+
+      return {
+        ...prev,
+        prompts: {
+          ...prev.prompts,
+          [locale]: updated,
+        },
+      };
+    });
+  };
+
+  const addPrompt = (locale: Locale) => {
+    updatePrompts(locale, (current) => [...current, { content: '', sort_order: current.length }]);
+  };
+
+  const updatePromptContent = (locale: Locale, index: number, value: string) => {
+    updatePrompts(locale, (current) =>
+      current.map((prompt, idx) => (idx === index ? { ...prompt, content: value } : prompt)),
+    );
+  };
+
+  const movePrompt = (locale: Locale, index: number, direction: -1 | 1) => {
+    updatePrompts(locale, (current) => {
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= current.length) {
+        return current;
+      }
+      const updated = [...current];
+      const [item] = updated.splice(index, 1);
+      updated.splice(newIndex, 0, item);
+      return updated;
+    });
+  };
+
+  const removePrompt = (locale: Locale, index: number) => {
+    updatePrompts(locale, (current) => current.filter((_, idx) => idx !== index));
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label htmlFor="name" className="text-gray-900 font-medium">
-          {t('name')}
-        </Label>
-        <Input
-          id="name"
-          value={formData.name}
-          onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-          required
-        />
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-2">
+        <Label className="text-gray-900 font-medium">{t('translations')}</Label>
+        <Tabs defaultValue={locales[0]} className="space-y-4">
+          <TabsList>
+            {locales.map((locale) => (
+              <TabsTrigger key={locale} value={locale}>
+                {locale.toUpperCase()} {locale === defaultLocale ? '•' : ''}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {locales.map((locale) => (
+            <TabsContent key={locale} value={locale} className="space-y-4">
+              <div>
+                <Label htmlFor={`name-${locale}`} className="text-gray-900 font-medium">
+                  {t('name')} ({locale.toUpperCase()})
+                </Label>
+                <Input
+                  id={`name-${locale}`}
+                  value={formData.translations[locale]?.name ?? ''}
+                  onChange={(event) => updateTranslation(locale, 'name', event.target.value)}
+                  required={locale === defaultLocale}
+                />
+              </div>
+              <div>
+                <Label htmlFor={`description-${locale}`} className="text-gray-900 font-medium">
+                  {t('description')} ({locale.toUpperCase()})
+                </Label>
+                <Textarea
+                  id={`description-${locale}`}
+                  value={formData.translations[locale]?.description ?? ''}
+                  onChange={(event) => updateTranslation(locale, 'description', event.target.value)}
+                  required={locale === defaultLocale}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-gray-900 font-medium">{t('prompts.title')} ({locale.toUpperCase()})</Label>
+                {formData.prompts[locale] && formData.prompts[locale].length > 0 ? (
+                  <div className="space-y-3">
+                    {formData.prompts[locale].map((prompt, index) => (
+                      <div key={`prompt-${locale}-${index}`} className="flex items-start gap-2">
+                        <Textarea
+                          id={`prompt-${locale}-${index}`}
+                          value={prompt.content}
+                          onChange={(event) => updatePromptContent(locale, index, event.target.value)}
+                          aria-label={t('prompts.itemLabel', { index: index + 1, locale: locale.toUpperCase() })}
+                          placeholder={t('prompts.placeholder')}
+                          className="flex-1"
+                        />
+                        <div className="flex flex-col gap-1 pt-1">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            onClick={() => movePrompt(locale, index, -1)}
+                            disabled={index === 0}
+                            aria-label={t('prompts.moveUp')}
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            onClick={() => movePrompt(locale, index, 1)}
+                            disabled={index === (formData.prompts[locale]?.length ?? 0) - 1}
+                            aria-label={t('prompts.moveDown')}
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            onClick={() => removePrompt(locale, index)}
+                            aria-label={t('prompts.delete')}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t('prompts.empty')}</p>
+                )}
+                <Button type="button" variant="outline" size="sm" onClick={() => addPrompt(locale)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t('prompts.add')}
+                </Button>
+              </div>
+            </TabsContent>
+          ))}
+        </Tabs>
       </div>
-      <div>
-        <Label htmlFor="description" className="text-gray-900 font-.medium">
-          {t('description')}
-        </Label>
-        <Textarea
-          id="description"
-          value={formData.description}
-          onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-          required
-        />
-      </div>
+
       <div>
         <Label htmlFor="webhookurl" className="text-gray-900 font-medium">
           {t('webhookUrl')}
@@ -214,10 +555,11 @@ function AgentEditor({ agent, onSave, onCancel }: AgentEditorProps) {
         <Input
           id="webhookurl"
           value={formData.webhookurl}
-          onChange={(e) => setFormData((prev) => ({ ...prev, webhookurl: e.target.value }))}
+          onChange={(event) => setFormData((prev) => ({ ...prev, webhookurl: event.target.value }))}
           required
         />
       </div>
+
       <div>
         <Label htmlFor="path" className="text-gray-900 font-medium">
           {t('path')}
@@ -225,10 +567,11 @@ function AgentEditor({ agent, onSave, onCancel }: AgentEditorProps) {
         <Input
           id="path"
           value={formData.path}
-          onChange={(e) => setFormData((prev) => ({ ...prev, path: e.target.value }))}
+          onChange={(event) => setFormData((prev) => ({ ...prev, path: event.target.value }))}
           required
         />
       </div>
+
       <div>
         <Label htmlFor="icon" className="text-gray-900 font-medium">
           {t('icon')}
@@ -236,10 +579,22 @@ function AgentEditor({ agent, onSave, onCancel }: AgentEditorProps) {
         <Input
           id="icon"
           value={formData.icon}
-          onChange={(e) => setFormData((prev) => ({ ...prev, icon: e.target.value }))}
+          onChange={(event) => setFormData((prev) => ({ ...prev, icon: event.target.value }))}
           required
         />
       </div>
+
+      <div>
+        <Label htmlFor="color" className="text-gray-900 font-medium">
+          {t('color')}
+        </Label>
+        <Input
+          id="color"
+          value={formData.color}
+          onChange={(event) => setFormData((prev) => ({ ...prev, color: event.target.value }))}
+        />
+      </div>
+
       <div>
         <Label htmlFor="access_level" className="text-gray-900 font-medium">
           {t('accessLevel.label')}
@@ -247,7 +602,7 @@ function AgentEditor({ agent, onSave, onCancel }: AgentEditorProps) {
         <Select
           value={formData.access_level}
           onValueChange={(value) =>
-            setFormData((prev) => ({ ...prev, access_level: value as Agent['access_level'] }))
+            setFormData((prev) => ({ ...prev, access_level: value as AccessLevel }))
           }
         >
           <SelectTrigger id="access_level">
@@ -261,6 +616,7 @@ function AgentEditor({ agent, onSave, onCancel }: AgentEditorProps) {
           </SelectContent>
         </Select>
       </div>
+
       <div className="flex gap-2 pt-4">
         <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
           <Save className="w-4 h-4 mr-2" />
@@ -273,4 +629,3 @@ function AgentEditor({ agent, onSave, onCancel }: AgentEditorProps) {
     </form>
   );
 }
-

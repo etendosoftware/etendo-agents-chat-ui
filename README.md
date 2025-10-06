@@ -6,6 +6,7 @@ access control per agent, and a rich chat surface supporting files, audio notes,
 ## Feature Highlights
 - Email/password and Google OAuth sign-in with Supabase, including Jira-based partner verification and session refresh in middleware.
 - Role-aware navigation (admin, partner, non_client/guest) with protected routes, agent-level access tiers, and an admin-only management panel.
+- Agent metadata (name, description) and quick-start prompts are stored with locale-aware translations so the UI tracks the active language automatically.
 - Responsive chat workspace with conversation history, streaming responses from n8n, attachments, audio recording, video-analysis flagging, and feedback prompts.
 - Agent catalog sourced from Supabase with inline create/update/delete, icon/color configuration, and webhook endpoints per agent.
 - MongoDB-backed conversation archive with rename/delete/search/pagination and per-user isolation.
@@ -13,7 +14,7 @@ access control per agent, and a rich chat surface supporting files, audio notes,
 
 ## Architecture Overview
 - **Next.js App Router** (`app/`) renders public auth flows and authenticated layouts; middleware guards the home dashboard.
-- **Supabase** handles authentication, session cookies, and tables (`profiles`, `agents`, `feedback`) accessed through `@/lib/supabase`.
+- **Supabase** handles authentication, session cookies, and tables (`profiles`, `agents`, `agent_translations`, `agent_prompts`, `feedback`) accessed through `@/lib/supabase`.
 - **MongoDB** stores conversations in the `conversations` collection (documents contain `messages`, `sessionId`, `agentId`, timestamps, etc.).
 - **n8n** receives chat payloads via `/api/webhook`, streams newline-delimited JSON chunks, and returns agent replies.
 - **UI Layer** is built with Tailwind CSS 4, shadcn/ui components, and custom gradients in `globals.css`.
@@ -59,7 +60,9 @@ Additional notes:
 
 ### Supabase Tables
 - `profiles`: `{ id (UUID, matches auth.user.id), role text }`
-- `agents`: `{ id uuid, name, description, webhookurl, path, color, icon, access_level }`
+- `agents`: `{ id uuid, name, description, webhookurl, path, color, icon, access_level }`<br/>`name`/`description` remain for backwards compatibility and as fallback values.
+- `agent_translations`: `{ id, agent_id → agents.id, locale, name, description, created_at, updated_at }`
+- `agent_prompts`: `{ id, agent_id → agents.id, locale, content, sort_order, created_at }`
 - `feedback`: `{ id, message_id, conversation_id, agent_id, rating, feedback_text, user_id }`
 
 > Ensure row-level security policies allow the application to read/write rows owned by the current user (and full access for admin users where required).
@@ -135,8 +138,8 @@ If you run locally, also provide NEXT_PUBLIC_SITE_URL to n8n if needed (not refe
 ## Admin Workflow
 
 - Navigate to /admin as an admin user.
-- Use “New Agent” to create entries; required fields are name, description, webhook URL (base), path (leading /), icon emoji, color class, and access level.
-- Existing agents can be edited or deleted; operations call Supabase directly and toast success/error feedback.
+- Use “New Agent” to create entries; each agent can now define name/description per locale in the translations tab (default locale is required) alongside webhook URL (base), path (leading /), icon emoji, color class, access level, and ordered prompts for every locale.
+- Existing agents can be edited or deleted; operations upsert both the base agent row and the locale translations with toast feedback on success/error.
 
 ## Chat Experience
 
@@ -146,6 +149,7 @@ If you run locally, also provide NEXT_PUBLIC_SITE_URL to n8n if needed (not refe
     - File uploads (up to 10 MB each), audio recording (webm), and optional video analysis flag.
     - Markdown rendering, link previews via /api/link-preview, YouTube embeds, attachment download buttons, and rating/feedback submission.
 - Session IDs persist per conversation; guests get a generated UUID, authenticated users load existing history.
+- New conversations render any locale-specific prompts configured for the agent (falling back to the default locale when needed) as introductory agent bubbles before user input.
 
 ## Authentication Flow
 

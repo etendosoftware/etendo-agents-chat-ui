@@ -9,7 +9,8 @@
       "loading": "Error loading agents.",
       "create": "The agent could not be created: {message}",
       "update": "The agent could not be updated: {message}",
-      "delete": "The agent could not be removed."
+      "delete": "The agent could not be removed.",
+      "nameRequired": "Please provide a name for the default language."
     },
     "success": {
       "create": "{name} has been created successfully.",
@@ -20,9 +21,21 @@
   "editor": {
     "name": "Agent name",
     "description": "Description",
+    "translations": "Translations",
+    "prompts": {
+      "title": "Initial prompts",
+      "empty": "No prompts defined for this language.",
+      "add": "Add prompt",
+      "moveUp": "Move prompt up",
+      "moveDown": "Move prompt down",
+      "delete": "Remove prompt",
+      "itemLabel": "Prompt {index} ({locale})",
+      "placeholder": "Write a prompt..."
+    },
     "webhookUrl": "Webhook URL",
     "path": "Agent Path",
     "icon": "Icon (Emoji)",
+    "color": "Color",
     "accessLevel": {
       "label": "Access Level",
       "placeholder": "Select an access level",
