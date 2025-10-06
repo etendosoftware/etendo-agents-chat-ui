@@ -387,9 +387,9 @@ export default function ChatInterface({
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center max-w-lg space-y-6">
-                  <div>
-                    <div className="text-4xl mb-4">{selectedAgent.icon}</div>
-                    <h3 className="text-lg font-semibold text-card-foreground mb-2">
+                  <div >
+                    <div className="text-lg md:text-4xl mb-4">{selectedAgent.icon}</div>
+                    <h3 className="text-sm md:text-lg font-semibold text-card-foreground mb-2">
                       {t('greeting', { agentName: selectedAgent.name })}
                     </h3>
                     <p className="text-muted-foreground">{selectedAgent.description}</p>
@@ -403,7 +403,7 @@ export default function ChatInterface({
                           onClick={() => handlePromptClick(prompt)}
                           className="text-left rounded-xl border border-border/60 bg-white/70 px-4 py-3 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                         >
-                          <span className="block text-sm text-card-foreground line-clamp-3">
+                          <span className="block text-xs md:text-sm text-card-foreground line-clamp-3">
                             {prompt.content}
                           </span>
                         </button>
