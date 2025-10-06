@@ -1,0 +1,26 @@
+{
+  "title": "Log In",
+  "form": {
+    "email": {
+      "label": "Email",
+      "placeholder": "email@example.com",
+      "validation": "Email is not valid"
+    },
+    "password": {
+      "label": "Password",
+      "validation": "Password is not valid"
+    },
+    "submit": "Log In",
+    "submitting": "Logging in...",
+    "google": "Login with Google"
+  },
+  "messages": {
+    "error": "Error",
+    "profileError": "Could not retrieve user profile.",
+    "unexpectedError": "An unexpected error occurred. Please try again."
+  },
+  "register": {
+    "text": "Don't have an account?",
+    "link": "Register"
+  }
+}

@@ -19,6 +19,7 @@ import { getSingleConversation } from '@/lib/actions/getSingleConversation';
 import { deleteConversation } from '@/lib/actions/deleteConversation';
 import { updateConversationTitle } from '@/lib/actions/updateConversationTitle';
 import { useToast } from "@/components/ui/use-toast";
+import { useLocale, useTranslations } from 'next-intl';
 
 // Debounce hook
 function useDebounce<T>(value: T, delay: number): T {
@@ -44,6 +45,9 @@ interface ConversationHistoryContentProps {
 export function ConversationHistoryContent({ initialConversations, agentPath, activeConversationId, agentId }: ConversationHistoryContentProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const locale = useLocale();
+  const localePrefix = `/${locale}`;
+  const t = useTranslations('chat.history');
   const [searchTerm, setSearchTerm] = useState("");
   const [conversations, setConversations] = useState(initialConversations);
   const [page, setPage] = useState(1);
@@ -107,13 +111,13 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
       const hasNewChat = conversations.some(c => c._id === 'new-chat');
       if (!hasNewChat) {
         return [
-          { _id: 'new-chat', conversationTitle: 'New chat', agentId: '', sessionId: '', email: '', createdAt: new Date(), updatedAt: new Date() } as Conversation,
+          { _id: 'new-chat', conversationTitle: t('newChat'), agentId: '', sessionId: '', email: '', createdAt: new Date(), updatedAt: new Date() } as Conversation,
           ...conversations
         ];
       }
     }
     return conversations;
-  }, [conversations, activeConversationId, isLoading]);
+  }, [conversations, activeConversationId, isLoading, t]);
 
   
 
@@ -126,13 +130,13 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
 
     if (result.success) {
       setConversations(prev => prev.filter(c => c._id !== conversationToDelete._id));
-      toast({ title: "Success", description: "Conversation deleted." });
+      toast({ title: t('toast.success'), description: t('success.delete') });
       setIsDeleteDialogOpen(false);
       if (activeConversationId === conversationToDelete._id) {
-        router.push(`/chat/${agentPath}`);
+        router.push(`${localePrefix}/chat/${agentPath}`);
       }
     } else {
-      toast({ variant: "destructive", title: "Error", description: result.error });
+      toast({ variant: "destructive", title: t('toast.error'), description: result.error });
     }
   };
 
@@ -144,39 +148,39 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
 
     if (result.success) {
       setConversations(prev => prev.map(c => c._id === conversationToEdit._id ? { ...c, conversationTitle: newTitle } : c));
-      toast({ title: "Success", description: "Title updated." });
+      toast({ title: t('toast.success'), description: t('success.update') });
       setIsEditDialogOpen(false);
     } else {
-      toast({ variant: "destructive", title: "Error", description: result.error });
+      toast({ variant: "destructive", title: t('toast.error'), description: result.error });
     }
   };
 
   return (
     <SidebarContent className="flex flex-col h-full bg-gradient-custom">
       <div className="p-2 mt-12 md:mt-24">
-        <Link href={`/chat/${agentPath}`} className="w-full">
+        <Link href={`${localePrefix}/chat/${agentPath}`} className="w-full">
           <Button className="w-full justify-start">
             <PlusIcon className="mr-2 h-4 w-4" />
-            New Chat
+            {t('newChat')}
           </Button>
         </Link>
       </div>
       <div className="p-2">
         <Input
-          placeholder="Search conversations..."
+          placeholder={t('searchPlaceholder')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className='border-gray-400 text-sm md:text-md'
         />
       </div>
       <SidebarGroup className="flex-1 min-h-0 flex flex-col">
-        <SidebarGroupLabel className="text-2xl py-4 border-b border-gray-300">History</SidebarGroupLabel>
+        <SidebarGroupLabel className="text-2xl py-4 border-b border-gray-300">{t('title')}</SidebarGroupLabel>
         <SidebarGroupContent className="pt-4 overflow-y-auto">
           <SidebarMenu>
             {displayConversations.map((item, index) => {
               const cleanedTitle = item.conversationTitle
                 ? item.conversationTitle.replace(/(\n\nUser email:.*|\n\nFilesAttached:.*)/gs, "").trim()
-                : "New Chat";
+                : t('newChat');
 
               const isActive = item._id === activeConversationId || (item._id === 'new-chat' && activeConversationId === undefined);
 
@@ -184,7 +188,7 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
                 <SidebarMenuItem key={item._id}>
                   <div className="flex items-center justify-between w-full group">
                     <SidebarMenuButton asChild className={`${isActive ? "bg-indigo-300 hover:bg-indigo-200" : "hover:bg-indigo-200"} flex-1 w-0`}>
-                      <Link href={item._id === 'new-chat' ? `/chat/${agentPath}` : `/chat/${agentPath}/${item._id}`} className="truncate">
+                      <Link href={item._id === 'new-chat' ? `${localePrefix}/chat/${agentPath}` : `${localePrefix}/chat/${agentPath}/${item._id}`} className="truncate">
                         <span>{cleanedTitle}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -201,11 +205,11 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
                           <div className="grid gap-1">
                             <Button variant="ghost" className="w-full justify-start text-sm p-2" onClick={() => { setConversationToEdit(item); setNewTitle(item.conversationTitle); setIsEditDialogOpen(true); }}>
                               <Edit className="mr-2 h-4 w-4" />
-                              Edit Title
+                              {t('editTitle')}
                             </Button>
                             <Button variant="ghost" className="w-full justify-start text-sm p-2 text-red-500 hover:text-red-600 focus:text-red-600" onClick={() => { setConversationToDelete(item); setIsDeleteDialogOpen(true); }}>
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
+                              {t('delete')}
                             </Button>
                           </div>
                         </PopoverContent>
@@ -220,7 +224,7 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
             {!isLoading && hasMore && (
               <div className="p-2">
                 <Button variant="outline" className="w-full" onClick={() => setPage(prev => prev + 1)}>
-                  Load More
+                  {t('loadMore')}
                 </Button>
               </div>
             )}
@@ -238,16 +242,16 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this conversation.
+              {t('deleteDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('deleteDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
               {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Continue
+              {t('deleteDialog.continue')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -256,18 +260,18 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit conversation title</DialogTitle>
+            <DialogTitle>{t('editDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Enter new title" />
+            <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder={t('editDialog.placeholder')} />
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="ghost">Cancel</Button>
+              <Button variant="ghost">{t('editDialog.cancel')}</Button>
             </DialogClose>
             <Button onClick={handleUpdateTitle} disabled={isUpdating}>
               {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Save
+              {t('editDialog.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

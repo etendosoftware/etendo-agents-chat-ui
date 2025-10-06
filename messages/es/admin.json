@@ -1,0 +1,46 @@
+{
+  "title": "Panel de administración",
+  "agents": {
+    "title": "Agentes configurados",
+    "new": "Nuevo agente",
+    "edit": "Editar agente",
+    "create": "Crear nuevo agente",
+    "errors": {
+      "loading": "Error al cargar los agentes.",
+      "create": "No se pudo crear el agente: {message}",
+      "update": "No se pudo actualizar el agente: {message}",
+      "delete": "No se pudo eliminar el agente."
+    },
+    "success": {
+      "create": "{name} se ha creado correctamente.",
+      "update": "{name} se ha actualizado correctamente.",
+      "delete": "El agente se ha eliminado correctamente."
+    }
+  },
+  "editor": {
+    "name": "Nombre del agente",
+    "description": "Descripción",
+    "webhookUrl": "URL del Webhook",
+    "path": "Ruta del agente",
+    "icon": "Icono (Emoji)",
+    "accessLevel": {
+      "label": "Nivel de acceso",
+      "placeholder": "Selecciona un nivel de acceso",
+      "options": {
+        "public": "Público",
+        "non_client": "No cliente",
+        "partner": "Socio",
+        "admin": "Administrador"
+      }
+    },
+    "save": "Guardar",
+    "cancel": "Cancelar"
+  },
+  "toast": {
+    "error": "Error",
+    "success": "Éxito",
+    "agentCreated": "Agente creado",
+    "agentUpdated": "Agente actualizado",
+    "agentDeleted": "Agente eliminado"
+  }
+}

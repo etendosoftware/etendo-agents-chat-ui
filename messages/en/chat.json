@@ -1,0 +1,72 @@
+{
+  "metadata": {
+    "title": "Chat | Etendo Agents",
+    "description": "Interact with Etendo AI agents.",
+    "agentTitle": "{agentName} | Etendo Agents",
+    "agentDescription": "Interact with an Etendo AI agent.",
+    "failed": "Failed to generate metadata for agent:"
+  },
+  "errors": {
+    "agentNotFound": "Agent not found",
+    "accessDenied": {
+      "title": "Access Denied",
+      "message": "You do not have permission to access this agent."
+    },
+    "delete": "Error deleting conversation.",
+    "update": "Error updating title.",
+    "connection": "Connection error",
+    "connect": "Could not connect with {agentName}. {error}",
+    "unknown": "Unknown error",
+    "emptyBody": "Response body is empty"
+  },
+  "history": {
+    "newChat": "New chat",
+    "searchPlaceholder": "Search conversations...",
+    "title": "History",
+    "loadMore": "Load More",
+    "editTitle": "Edit Title",
+    "delete": "Delete",
+    "deleteDialog": {
+      "title": "Are you sure?",
+      "description": "This action cannot be undone. This will permanently delete this conversation.",
+      "cancel": "Cancel",
+      "continue": "Continue"
+    },
+    "editDialog": {
+      "title": "Edit conversation title",
+      "placeholder": "Enter new title",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "success": {
+        "delete": "Conversation deleted.",
+        "update": "Title updated."
+    },
+    "toast": {
+        "success": "Success",
+        "error": "Error"
+    }
+  },
+  "interface": {
+    "audioMessage": "[Audio message]",
+    "attachments": "[Attachments]",
+    "thinking": "Thinking...",
+    "videoAnalysis": "(Video Analysis)",
+    "messagePlaceholder": "Write a message here...",
+    "greeting": "Hi! I'm the {agentName}",
+    "toast": {
+        "sent": "Message sent",
+        "received": "Response received from {agentName}"
+    }
+  },
+  "feedback": {
+    "thanks": "Thank you for your feedback!",
+    "dialog": {
+      "title": "Provide additional feedback",
+      "description": "Your feedback is valuable in helping us improve the agent.",
+      "placeholder": "What did you not like about this response?",
+      "cancel": "Cancel",
+      "submit": "Submit Feedback"
+    }
+  }
+}

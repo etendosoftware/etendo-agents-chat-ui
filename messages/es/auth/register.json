@@ -1,0 +1,26 @@
+{
+  "title": "Crear una cuenta",
+  "form": {
+    "email": {
+      "label": "Correo electrónico",
+      "placeholder": "correo@ejemplo.com",
+      "validation": "Por favor, introduce un correo electrónico válido."
+    },
+    "password": {
+      "label": "Contraseña",
+      "validation": "La contraseña debe tener al menos 6 caracteres."
+    },
+    "submit": "Registrarse",
+    "submitting": "Registrando...",
+    "google": "Registrarse con Google"
+  },
+  "messages": {
+    "success": "¡Registro exitoso! Por favor, revisa tu correo electrónico para confirmar tu cuenta.",
+    "error": "Error",
+    "successTitle": "Éxito"
+  },
+  "login": {
+    "text": "¿Ya tienes una cuenta?",
+    "link": "Iniciar sesión"
+  }
+}
