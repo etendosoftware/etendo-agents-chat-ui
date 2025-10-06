@@ -1,7 +1,8 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
 import MessageBubble from '../components/message-bubble'
+import { renderWithIntl, createTranslator } from './utils/intl'
 
 const submitFeedbackMock = vi.hoisted(() => vi.fn())
 const LinkPreviewMock = vi.hoisted(() => vi.fn())
@@ -46,7 +47,7 @@ describe('MessageBubble', () => {
       timestamp: new Date(),
     }
 
-    render(
+    renderWithIntl(
       <MessageBubble
         message={message}
         agent={baseAgent}
@@ -71,7 +72,7 @@ describe('MessageBubble', () => {
       timestamp: new Date(),
     }
 
-    render(
+    renderWithIntl(
       <MessageBubble
         message={message}
         agent={baseAgent}
@@ -105,7 +106,7 @@ describe('MessageBubble', () => {
       timestamp: new Date(),
     }
 
-    render(
+    renderWithIntl(
       <MessageBubble
         message={message}
         agent={baseAgent}
@@ -118,10 +119,11 @@ describe('MessageBubble', () => {
     const thumbsDown = buttons[buttons.length - 1]
     fireEvent.click(thumbsDown)
 
-    const textarea = await screen.findByPlaceholderText('What did you not like about this response?')
+    const tFeedback = createTranslator('en', 'chat.feedback')
+    const textarea = await screen.findByPlaceholderText(tFeedback('dialog.placeholder'))
     fireEvent.change(textarea, { target: { value: 'Too generic' } })
 
-    const submitButton = screen.getByRole('button', { name: /submit feedback/i })
+    const submitButton = screen.getByRole('button', { name: tFeedback('dialog.submit') })
     fireEvent.click(submitButton)
 
     await waitFor(() =>

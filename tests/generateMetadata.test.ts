@@ -1,5 +1,6 @@
-import { generateMetadata } from '../app/(authenticated)/chat/[agentPath]/[[...conversationId]]/page'
+import { generateMetadata } from '../app/[locale]/(authenticated)/chat/[agentPath]/[[...conversationId]]/page'
 import { vi } from 'vitest'
+import { createTranslator } from './utils/intl'
 
 const maybeSingleMock = vi.hoisted(() => vi.fn())
 const eqMock = vi.hoisted(() => vi.fn(() => ({ maybeSingle: maybeSingleMock })))
@@ -10,6 +11,10 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: () => ({
     from: fromMock,
   }),
+}))
+
+vi.mock('next-intl/server', () => ({
+  getTranslations: async (namespace: string) => createTranslator('en', namespace),
 }))
 
 describe('generateMetadata', () => {
@@ -29,26 +34,31 @@ describe('generateMetadata', () => {
       },
     })
 
-    const metadata = await generateMetadata({ params: { agentPath: 'support' } })
+    const metadata = await generateMetadata({ params: { locale: 'en', agentPath: 'support' } })
 
-    expect(metadata.title).toBe('Support Agent | Etendo Agents')
+    const tMetadata = createTranslator('en', 'chat.metadata')
+
+    expect(metadata.title).toBe(tMetadata('agentTitle', { agentName: 'Support Agent' }))
     expect(metadata.description).toBe('Assists with tickets')
+    expect(metadata.openGraph?.title).toBe(tMetadata('agentTitle', { agentName: 'Support Agent' }))
     expect(metadata.openGraph?.description).toBe('Assists with tickets')
   })
 
   it('falls back to generic metadata when agent is missing', async () => {
     maybeSingleMock.mockResolvedValue({ data: null })
 
-    const metadata = await generateMetadata({ params: { agentPath: 'unknown' } })
+    const metadata = await generateMetadata({ params: { locale: 'en', agentPath: 'unknown' } })
 
-    expect(metadata.title).toBe('Chat | Etendo Agents')
+    const tMetadata = createTranslator('en', 'chat.metadata')
+    expect(metadata.title).toBe(tMetadata('title'))
   })
 
   it('handles supabase errors gracefully', async () => {
     maybeSingleMock.mockRejectedValue(new Error('boom'))
 
-    const metadata = await generateMetadata({ params: { agentPath: 'error' } })
+    const metadata = await generateMetadata({ params: { locale: 'en', agentPath: 'error' } })
 
-    expect(metadata.title).toBe('Chat | Etendo Agents')
+    const tMetadata = createTranslator('en', 'chat.metadata')
+    expect(metadata.title).toBe(tMetadata('title'))
   })
 })

@@ -1,10 +1,11 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import ChatInterface, { Agent } from '../components/chat-interface'
-import { vi } from 'vitest'
+import { Mock, vi } from 'vitest'
+import { renderWithIntl, createTranslator } from './utils/intl'
 
 const pushMock = vi.hoisted(() => vi.fn())
-const pathnameMock = vi.hoisted(() => vi.fn(() => '/chat/sales'))
+const pathnameMock = vi.hoisted(() => vi.fn(() => '/en/chat/sales'))
 const createObjectURLMock = vi.hoisted(() => vi.fn(() => 'blob://file'))
 
 vi.mock('@/lib/supabaseClient', () => ({
@@ -67,7 +68,7 @@ describe('ChatInterface', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     global.URL.createObjectURL = createObjectURLMock
-    pathnameMock.mockReturnValue('/chat/sales')
+    pathnameMock.mockReturnValue('/en/chat/sales')
     window.fetch = vi.fn(() =>
       Promise.resolve(
         new Response('{"type":"item","content":"Hello from agent"}\n', {
@@ -84,7 +85,7 @@ describe('ChatInterface', () => {
   })
 
   it('sends a message and forwards payload to webhook', async () => {
-    const { container } = render(
+    const { container } = renderWithIntl(
       <ChatInterface
         agent={agent}
         user={null}
@@ -94,7 +95,8 @@ describe('ChatInterface', () => {
       />,
     )
 
-    const textarea = screen.getByPlaceholderText('Write a message here...')
+    const tInterface = createTranslator('en', 'chat.interface')
+    const textarea = screen.getByPlaceholderText(tInterface('messagePlaceholder'))
     fireEvent.change(textarea, { target: { value: 'Hola agente' } })
 
     const form = container.querySelector('form')
@@ -103,7 +105,7 @@ describe('ChatInterface', () => {
 
     await waitFor(() => expect(window.fetch).toHaveBeenCalledTimes(1))
 
-    const fetchMock = window.fetch as unknown as jest.Mock
+    const fetchMock = window.fetch as unknown as Mock
     const [[, options]] = fetchMock.mock.calls
     const formData = options!.body as FormData
 
@@ -122,7 +124,7 @@ describe('ChatInterface', () => {
   })
 
   it('falls back to session id when conversation id is missing', async () => {
-    const { container } = render(
+    const { container } = renderWithIntl(
       <ChatInterface
         agent={agent}
         user={null}
@@ -131,7 +133,8 @@ describe('ChatInterface', () => {
       />,
     )
 
-    const textarea = screen.getByPlaceholderText('Write a message here...')
+    const tInterface = createTranslator('en', 'chat.interface')
+    const textarea = screen.getByPlaceholderText(tInterface('messagePlaceholder'))
     fireEvent.change(textarea, { target: { value: 'Nuevo chat' } })
 
     const form = container.querySelector('form')!
@@ -167,7 +170,7 @@ describe('ChatInterface', () => {
       }),
     ) as unknown as typeof fetch
 
-    const { container } = render(
+    const { container } = renderWithIntl(
       <ChatInterface
         agent={agent}
         user={null}
@@ -176,18 +179,19 @@ describe('ChatInterface', () => {
       />,
     )
 
-    const textarea = screen.getByPlaceholderText('Write a message here...')
+    const tInterface = createTranslator('en', 'chat.interface')
+    const textarea = screen.getByPlaceholderText(tInterface('messagePlaceholder'))
     fireEvent.change(textarea, { target: { value: 'Hola' } })
 
     const form = container.querySelector('form')!
     fireEvent.submit(form)
 
     await screen.findByText('Streamed reply')
-    expect(pushMock).toHaveBeenCalledWith('/chat/sales/new-conv')
+    expect(pushMock).toHaveBeenCalledWith('/en/chat/sales/new-conv')
   })
 
   it('envía adjuntos y marca video analysis en el payload', async () => {
-    pathnameMock.mockReturnValue('/chat/support-agent')
+    pathnameMock.mockReturnValue('/en/chat/support-agent')
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(new TextEncoder().encode(`${JSON.stringify({ type: 'item', content: 'Respuesta' })}\n`))
@@ -201,7 +205,7 @@ describe('ChatInterface', () => {
       }),
     ) as unknown as typeof fetch
 
-    const { container } = render(
+    const { container } = renderWithIntl(
       <ChatInterface
         agent={agent}
         user={{ email: 'demo@example.com' } as any}
@@ -219,7 +223,7 @@ describe('ChatInterface', () => {
 
     await waitFor(() => expect(window.fetch).toHaveBeenCalled())
 
-    const [[, options]] = (window.fetch as unknown as jest.Mock).mock.calls
+    const [[, options]] = (window.fetch as unknown as Mock).mock.calls
     const payload = options!.body as FormData
 
     expect(payload.get('file_0')).toBeInstanceOf(File)

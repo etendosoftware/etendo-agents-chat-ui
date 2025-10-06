@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from "@/components/ui/textarea"
 import { Download, FileText, ImageIcon, Play, Pause, ThumbsUp, ThumbsDown } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
+import { useTranslations } from "next-intl"
 import type { Message, Agent } from "./chat-interface"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -78,6 +79,7 @@ interface MessageBubbleProps {
 }
 
 export default function MessageBubble({ message, agent, user, userAvatarUrl }: MessageBubbleProps) {
+  const t = useTranslations("chat.feedback")
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false)
   const [feedbackText, setFeedbackText] = useState("")
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
@@ -305,7 +307,7 @@ export default function MessageBubble({ message, agent, user, userAvatarUrl }: M
         {!isUser && user && (
           <div className="flex items-center gap-1 text-muted-foreground h-7">
             {feedbackSubmitted ? (
-              <p className="text-xs italic">Thank you for your feedback!</p>
+              <p className="text-xs italic">{t("thanks")}</p>
             ) : (
               <>
                 <Button
@@ -344,22 +346,22 @@ export default function MessageBubble({ message, agent, user, userAvatarUrl }: M
       <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Provide additional feedback</DialogTitle>
+            <DialogTitle>{t("dialog.title")}</DialogTitle>
             <DialogDescription>
-              Your feedback is valuable in helping us improve the agent.
+              {t("dialog.description")}
             </DialogDescription>
           </DialogHeader>
           <Textarea
             value={feedbackText}
             onChange={(e) => setFeedbackText(e.target.value)}
-            placeholder="What did you not like about this response?"
+            placeholder={t("dialog.placeholder")}
           />
           <DialogFooter>
             <Button onClick={() => setIsFeedbackDialogOpen(false)} variant="ghost">
-              Cancel
+              {t("dialog.cancel")}
             </Button>
             <Button onClick={() => handleFeedbackSubmit('bad', feedbackText)}>
-              Submit Feedback
+              {t("dialog.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>

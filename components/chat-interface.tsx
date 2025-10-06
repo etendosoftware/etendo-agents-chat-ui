@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -70,6 +71,10 @@ export default function ChatInterface({
 }: ChatInterfaceProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const locale = useLocale()
+  const t = useTranslations('chat.interface');
+  const tErrors = useTranslations('chat.errors');
+  const localePrefix = `/${locale}`
   const [selectedAgent] = useState<Agent>(agent)
   const [messages, setMessages] = useState<Message[]>(
     initialMessages
@@ -138,9 +143,9 @@ export default function ChatInterface({
       content:
         content ||
         (audioBlob
-          ? "[Audio message]"
+          ? t('audioMessage')
           : files.length > 0
-            ? "[Attachments]"
+            ? t('attachments')
             : ""),
       sender: "user",
       timestamp: new Date(),
@@ -221,7 +226,7 @@ export default function ChatInterface({
       }
 
       if (!response.body) {
-        throw new Error("Response body is empty")
+        throw new Error(tErrors('emptyBody'))
       }
 
       const agentMessageIndex = messages.length + 1; // Calculate index after userMessage is added
@@ -253,7 +258,7 @@ export default function ChatInterface({
             const data = JSON.parse(line)
 
             if (data.conversationId && !conversationId && !navigated) {
-              router.push(`/chat/${agent.path.substring(1)}/${data.conversationId}`)
+              router.push(`${localePrefix}/chat/${agent.path.substring(1)}/${data.conversationId}`)
               navigated = true
             }
 
@@ -277,18 +282,14 @@ export default function ChatInterface({
       }
 
       toast({
-        title: "Mensaje enviado",
-        description: `Respuesta recibida de ${selectedAgent.name}`,
+        title: t('toast.sent'),
+        description: t('toast.received', { agentName: selectedAgent.name }),
       })
     } catch (error) {
       console.error("[v0] Error al enviar mensaje:", error)
       toast({
-        title: "Error de conexión",
-        description: `No se pudo conectar con ${
-          selectedAgent.name
-          }. ${
-          error instanceof Error ? error.message : "Error desconocido"
-          }`,
+        title: tErrors('connection'),
+        description: tErrors('connect', { agentName: selectedAgent.name, error: error instanceof Error ? error.message : tErrors('unknown') }),
         variant: "destructive",
       })
     } finally {
@@ -361,7 +362,7 @@ export default function ChatInterface({
                 <div className="text-center">
                   <div className="text-4xl mb-4">{selectedAgent.icon}</div>
                   <h3 className="text-lg font-semibold text-card-foreground mb-2">
-                    Hi! I'm the {selectedAgent.name}
+                    {t('greeting', { agentName: selectedAgent.name })}
                   </h3>
                   <p className="text-muted-foreground">{selectedAgent.description}</p>
                 </div>
@@ -384,7 +385,7 @@ export default function ChatInterface({
                 <div className="glass-effect rounded-2xl p-3 max-w-xs">
                   <div className="flex items-center gap-2">
                     <Bot className="w-6 h-6 text-primary thinking-robot-smooth" />
-                    <p className="text-sm text-muted-foreground">Thinking...</p>
+                    <p className="text-sm text-muted-foreground">{t('thinking')}</p>
                   </div>
                 </div>
               </div>
@@ -409,7 +410,7 @@ export default function ChatInterface({
                     value={inputMessage}
                     onChange={e => setInputMessage(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Write a message here..."
+                    placeholder={t('messagePlaceholder')}
                     className="w-full border-0 bg-transparent px-4 py-3 text-base focus:ring-0 focus:border-0 focus-visible:ring-0 focus-visible:border-0 resize-none max-h-16"
                     disabled={isLoading || isResponding}
                     rows={1}
@@ -425,7 +426,7 @@ export default function ChatInterface({
                             }`}
                         >
                           {file.name}
-                          {isVideoAnalysis && <span className="text-xs ml-1">(Video Analysis)</span>}
+                          {isVideoAnalysis && <span className="text-xs ml-1">{t('videoAnalysis')}</span>}
                           <button
                             type="button"
                             onClick={() => handleRemoveFile(index)}

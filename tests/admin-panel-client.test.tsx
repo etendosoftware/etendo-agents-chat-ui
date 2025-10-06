@@ -1,8 +1,9 @@
 import '@testing-library/jest-dom'
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { AdminPanelClient } from '../app/(authenticated)/admin/AdminPanelClient'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { AdminPanelClient } from '../app/[locale]/(authenticated)/admin/AdminPanelClient'
 import { vi } from 'vitest'
+import { renderWithIntl } from './utils/intl'
 
 const insertSelectMock = vi.hoisted(() => vi.fn())
 const updateSelectMock = vi.hoisted(() => vi.fn())
@@ -84,7 +85,7 @@ describe('AdminPanelClient', () => {
   })
 
   it('creates a new agent via supabase insert', async () => {
-    render(<AdminPanelClient initialAgents={[]} />)
+    renderWithIntl(<AdminPanelClient initialAgents={[]} />)
 
     fireEvent.click(screen.getByRole('button', { name: /new agent/i }))
 

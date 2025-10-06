@@ -48,7 +48,7 @@ describe('signUpWithJiraCheck', () => {
       json: () => Promise.resolve({ isJiraUser: true }),
     })
 
-    const { signUpWithJiraCheck } = await import('../app/auth/register/actions')
+    const { signUpWithJiraCheck } = await import('../app/[locale]/auth/register/actions')
     const result = await signUpWithJiraCheck({ email: 'user@example.com', password: 'secret123' })
 
     expect(result).toEqual({ success: true })
@@ -62,7 +62,7 @@ describe('signUpWithJiraCheck', () => {
       json: () => Promise.resolve({ isJiraUser: false }),
     })
 
-    const { signUpWithJiraCheck } = await import('../app/auth/register/actions')
+    const { signUpWithJiraCheck } = await import('../app/[locale]/auth/register/actions')
     const result = await signUpWithJiraCheck({ email: 'user@example.com', password: 'secret123' })
 
     expect(result).toEqual({ success: true })
@@ -77,7 +77,7 @@ describe('signUpWithJiraCheck', () => {
 
     signUpMock.mockResolvedValue({ data: { user: null }, error: { message: 'duplicate' } })
 
-    const { signUpWithJiraCheck } = await import('../app/auth/register/actions')
+    const { signUpWithJiraCheck } = await import('../app/[locale]/auth/register/actions')
     const result = await signUpWithJiraCheck({ email: 'user@example.com', password: 'secret123' })
 
     expect(result).toEqual({ error: 'Failed to sign up: duplicate' })
@@ -87,7 +87,7 @@ describe('signUpWithJiraCheck', () => {
   it('propagates configuration error when webhook url missing', async () => {
     process.env.JIRA_WEBHOOK_URL = ''
 
-    const { signUpWithJiraCheck } = await import('../app/auth/register/actions')
+    const { signUpWithJiraCheck } = await import('../app/[locale]/auth/register/actions')
     const result = await signUpWithJiraCheck({ email: 'user@example.com', password: 'secret123' })
 
     expect(result).toEqual({ error: 'Server configuration error. Please contact support.' })

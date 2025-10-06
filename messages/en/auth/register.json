@@ -1,0 +1,26 @@
+{
+  "title": "Create an Account",
+  "form": {
+    "email": {
+      "label": "Email",
+      "placeholder": "email@example.com",
+      "validation": "Please enter a valid email."
+    },
+    "password": {
+      "label": "Password",
+      "validation": "Password must be at least 6 characters."
+    },
+    "submit": "Register",
+    "submitting": "Registering...",
+    "google": "Register with Google"
+  },
+  "messages": {
+    "success": "Registration successful! Please check your email to confirm your account.",
+    "error": "Error",
+    "successTitle": "Success"
+  },
+  "login": {
+    "text": "Already have an account?",
+    "link": "Log In"
+  }
+}

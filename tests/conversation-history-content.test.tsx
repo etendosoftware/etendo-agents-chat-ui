@@ -1,8 +1,9 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { screen, waitFor, fireEvent } from '@testing-library/react'
 import { ConversationHistoryContent } from '../components/conversation-history-content-logic'
 import { SidebarProvider } from '../components/ui/sidebar'
+import { renderWithIntl, createTranslator } from './utils/intl'
 
 const fetchConversationsMock = vi.hoisted(() => vi.fn())
 const getSingleConversationMock = vi.hoisted(() => vi.fn())
@@ -78,16 +79,18 @@ describe('ConversationHistoryContent', () => {
   })
 
   const renderWithProvider = (ui: React.ReactNode) =>
-    render(<SidebarProvider>{ui}</SidebarProvider>)
+    renderWithIntl(<SidebarProvider>{ui}</SidebarProvider>)
 
   it('adds "New chat" shortcut when no active conversation', async () => {
     fetchConversationsMock.mockResolvedValueOnce([])
+
+    const tHistory = createTranslator('en', 'chat.history')
 
     renderWithProvider(
       <ConversationHistoryContent initialConversations={[]} agentPath="support" agentId="agent-1" />,
     )
 
-    expect(await screen.findByText('New Chat')).toBeInTheDocument()
+    expect(await screen.findByText(tHistory('newChat'))).toBeInTheDocument()
   })
 
   it('loads additional pages when clicking Load More', async () => {
@@ -95,6 +98,8 @@ describe('ConversationHistoryContent', () => {
     fetchConversationsMock
       .mockResolvedValueOnce(initial)
       .mockResolvedValueOnce([buildConversation('conv-extra', 'Extra conversation')])
+
+    const tHistory = createTranslator('en', 'chat.history')
 
     renderWithProvider(
       <ConversationHistoryContent
@@ -104,7 +109,7 @@ describe('ConversationHistoryContent', () => {
       />,
     )
 
-    const loadMoreButton = await screen.findByRole('button', { name: /load more/i })
+    const loadMoreButton = await screen.findByRole('button', { name: new RegExp(tHistory('loadMore'), 'i') })
     fireEvent.click(loadMoreButton)
 
     await waitFor(() => expect(fetchConversationsMock).toHaveBeenCalledWith('agent-1', { searchTerm: '', page: 2, limit: 10 }))
@@ -115,6 +120,8 @@ describe('ConversationHistoryContent', () => {
     const activeConversation = buildConversation('conv-1', 'Active conversation')
     fetchConversationsMock.mockResolvedValueOnce([activeConversation])
     deleteConversationMock.mockResolvedValue({ success: true })
+
+    const tHistory = createTranslator('en', 'chat.history')
 
     renderWithProvider(
       <ConversationHistoryContent
@@ -130,13 +137,13 @@ describe('ConversationHistoryContent', () => {
     expect(menuButton).toBeDefined()
     fireEvent.click(menuButton as HTMLButtonElement)
 
-    const deleteOption = await screen.findByText(/delete/i)
+    const deleteOption = await screen.findByText(tHistory('delete'))
     fireEvent.click(deleteOption)
 
-    const continueButton = await screen.findByRole('button', { name: /continue/i })
+    const continueButton = await screen.findByRole('button', { name: tHistory('deleteDialog.continue') })
     fireEvent.click(continueButton)
 
     await waitFor(() => expect(deleteConversationMock).toHaveBeenCalledWith('conv-1'))
-    expect(pushMock).toHaveBeenCalledWith('/chat/support')
+    expect(pushMock).toHaveBeenCalledWith('/en/chat/support')
   })
 })

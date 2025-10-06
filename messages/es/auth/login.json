@@ -1,0 +1,26 @@
+{
+  "title": "Iniciar sesión",
+  "form": {
+    "email": {
+      "label": "Correo electrónico",
+      "placeholder": "correo@ejemplo.com",
+      "validation": "El correo electrónico no es válido"
+    },
+    "password": {
+      "label": "Contraseña",
+      "validation": "La contraseña no es válida"
+    },
+    "submit": "Iniciar sesión",
+    "submitting": "Iniciando sesión...",
+    "google": "Iniciar sesión con Google"
+  },
+  "messages": {
+    "error": "Error",
+    "profileError": "No se pudo recuperar el perfil de usuario.",
+    "unexpectedError": "Ocurrió un error inesperado. Por favor, inténtalo de nuevo."
+  },
+  "register": {
+    "text": "¿No tienes una cuenta?",
+    "link": "Regístrate"
+  }
+}
