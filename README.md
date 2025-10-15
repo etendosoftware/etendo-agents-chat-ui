@@ -10,7 +10,7 @@ access control per agent, and a rich chat surface supporting files, audio notes,
 - Responsive chat workspace with conversation history, streaming responses from n8n, attachments, audio recording, video-analysis flagging, and feedback prompts.
 - Agent catalog sourced from Supabase with inline create/update/delete, icon/color configuration, and webhook endpoints per agent.
 - MongoDB-backed conversation archive with rename/delete/search/pagination and per-user isolation.
-- Ancillary APIs for link previews and webhook proxying that forward uploaded files and audio to n8n.
+- Ancillary APIs for link previews and webhook proxying that forward uploaded files/audio to n8n or Chatwoot, preserving metadata such as the **video analysis** flag and rendering inbound Chatwoot attachments (images, audio, files) in the UI.
 
 ## Architecture Overview
 - **Next.js App Router** (`app/`) renders public auth flows and authenticated layouts; middleware guards the home dashboard.
@@ -114,6 +114,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 MONGODB_URI=mongodb+srv://...
 MONGODB_DB_NAME=chat_history         # optional override
 JIRA_WEBHOOK_URL=https://...         # POST endpoint returning { isJiraUser: boolean }
+CHATWOOT_BASE_URL=https://chatwoot.example.com
+CHATWOOT_ACCOUNT_ID=1
+CHATWOOT_API_TOKEN=xxxxxx              # public API inbox token for uploads
+CHATWOOT_WEBHOOK_TOKEN=secret-value    # shared secret that Chatwoot will use when calling /api/chatwoot/webhook
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX       # optional GA4 measurement ID
 
 If you run locally, also provide NEXT_PUBLIC_SITE_URL to n8n if needed (not referenced in code).
@@ -148,8 +152,17 @@ If you run locally, also provide NEXT_PUBLIC_SITE_URL to n8n if needed (not refe
     - Enter to send, Shift/Ctrl+Enter for new line.
     - File uploads (up to 10 MB each), audio recording (webm), and optional video analysis flag.
     - Markdown rendering, link previews via /api/link-preview, YouTube embeds, attachment download buttons, and rating/feedback submission.
-- Session IDs persist per conversation; guests get a generated UUID, authenticated users load existing history.
+    - Session IDs persist per conversation; guests get a generated UUID, authenticated users load existing history.
 - New conversations render any locale-specific prompts configured for the agent (falling back to the default locale when needed) as introductory agent bubbles before user input.
+
+## Chatwoot Integration
+
+When an agent has `chatwoot_inbox_identifier` configured, outbound messages are proxied to Chatwoot instead of n8n:
+
+- `/api/webhook` upserts the Chatwoot contact and propagates uploaded files/audio as real attachments. The optional `videoAnalysis=true` flag is passed along in `content_attributes`/`additional_attributes`, so the inbox can act on that metadata.
+- Incoming events from Chatwoot (`/api/chatwoot/webhook`) deliver attachments and the same attributes back to the app; the chat UI renders images/audio received from human agents.
+- Environment variables required on the app side: `CHATWOOT_BASE_URL`, `CHATWOOT_ACCOUNT_ID`, `CHATWOOT_API_TOKEN`, `CHATWOOT_WEBHOOK_TOKEN`.
+- In Chatwoot, configure an API inbox and set its public identifier on the agent. For webhooks, create a webhook pointing to `/api/chatwoot/webhook` and reuse the same secret value stored in `CHATWOOT_WEBHOOK_TOKEN` so signatures validate correctly.
 
 ## Authentication Flow
 

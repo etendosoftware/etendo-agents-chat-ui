@@ -3,9 +3,11 @@ import { render, waitFor } from '@testing-library/react'
 import ChatLayout from '../components/chat-layout'
 import { vi } from 'vitest'
 
+const chatInterfaceMock = vi.fn(() => <div data-testid="chat-interface" />)
+
 vi.mock('../components/chat-interface', () => ({
   __esModule: true,
-  default: () => <div data-testid="chat-interface" />,
+  default: (props: any) => chatInterfaceMock(props),
 }))
 
 vi.mock('../components/ui/sidebar', () => ({
@@ -46,6 +48,7 @@ describe('ChatLayout', () => {
 
   beforeEach(() => {
     window.gtag = vi.fn()
+    chatInterfaceMock.mockClear()
   })
 
   afterEach(() => {
@@ -93,5 +96,19 @@ describe('ChatLayout', () => {
         }),
       ),
     )
+  })
+
+  it('forwards initial chatwoot conversation id to chat interface', () => {
+    render(
+      <ChatLayout
+        {...baseProps}
+        user={{ id: 'user-2' } as any}
+        initialChatwootConversationId="chatwoot-999"
+      />,
+    )
+
+    expect(chatInterfaceMock).toHaveBeenCalled()
+    const props = chatInterfaceMock.mock.calls[0][0]
+    expect(props.initialChatwootConversationId).toBe('chatwoot-999')
   })
 })
