@@ -4,6 +4,8 @@
 import { connectToDatabase } from '../mongodb';
 import { ObjectId } from 'mongodb';
 
+const escapeRegExp = (value: string) => value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
 export interface Conversation {
   _id: string;
   sessionId: string;
@@ -35,10 +37,18 @@ export async function getConversationHistory(
     const { searchTerm, page = 1, limit = 10 } = options;
     const { db } = await connectToDatabase();
 
+    const trimmedEmail = userEmail?.trim() ?? '';
+
     const query: any = {
-      email: userEmail,
       agentId: agentId,
     };
+
+    if (trimmedEmail) {
+      query.email = {
+        $regex: `^${escapeRegExp(trimmedEmail)}$`,
+        $options: 'i',
+      };
+    }
 
     if (searchTerm) {
       query.conversationTitle = { $regex: searchTerm, $options: 'i' };
@@ -79,24 +89,37 @@ export async function getConversationHistory(
 export async function getMessagesForConversation(
   conversationId: string,
   userEmail: string,
-): Promise<{ messages: Message[]; sessionId: string | null }> {
+): Promise<{ messages: Message[]; sessionId: string | null; chatwootConversationId: string | null }> {
   try {
     const { db } = await connectToDatabase();
+    const trimmedEmail = userEmail?.trim() ?? '';
+
     const conversation = await db
       .collection('conversations')
-      .findOne({ _id: new ObjectId(conversationId), email: userEmail });
+      .findOne({
+        _id: new ObjectId(conversationId),
+        ...(trimmedEmail
+          ? {
+              email: {
+                $regex: `^${escapeRegExp(trimmedEmail)}$`,
+                $options: 'i',
+              },
+            }
+          : {}),
+      });
 
     if (!conversation) {
       console.warn(`Conversation with ID ${conversationId} not found for user ${userEmail}`);
-      return { messages: [], sessionId: null };
+      return { messages: [], sessionId: null, chatwootConversationId: null };
     }
 
     return {
       messages: conversation.messages || [],
       sessionId: conversation.sessionId || null, // CORRECTED: Use sessionId
+      chatwootConversationId: conversation.chatwootConversationId ?? null,
     };
   } catch (error) {
     console.error(`Failed to fetch messages for conversation ${conversationId}:`, error);
-    return { messages: [], sessionId: null };
+    return { messages: [], sessionId: null, chatwootConversationId: null };
   }
 }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Edit, Trash2, Save, ArrowUp, ArrowDown } from "lucide-react";
@@ -38,6 +39,8 @@ interface AdminAgent {
   color: string;
   icon: string;
   access_level: AccessLevel;
+  requires_email: boolean;
+  chatwoot_inbox_identifier: string;
   translations: AgentTranslations;
   prompts: AgentPrompts;
 }
@@ -131,15 +134,17 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
       return;
     }
 
-    const agentPayload = {
-      name: defaultTranslation.name,
-      description: defaultTranslation.description,
-      webhookurl: agent.webhookurl,
-      path: agent.path,
-      color: agent.color,
-      icon: agent.icon,
-      access_level: agent.access_level,
-    };
+  const agentPayload = {
+    name: defaultTranslation.name,
+    description: defaultTranslation.description,
+    webhookurl: agent.webhookurl,
+    path: agent.path,
+    color: agent.color,
+    icon: agent.icon,
+    access_level: agent.access_level,
+    requires_email: agent.requires_email,
+    chatwoot_inbox_identifier: agent.chatwoot_inbox_identifier || null,
+  };
 
     if (isCreating) {
       const { data: createdAgents, error: createError } = await supabase
@@ -185,6 +190,8 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
         color: agent.color,
         icon: agent.icon,
         access_level: agent.access_level,
+        requires_email: agent.requires_email,
+        chatwoot_inbox_identifier: agent.chatwoot_inbox_identifier,
         translations: cloneTranslations(agent.translations, locales),
         prompts: clonePrompts(agent.prompts, locales),
       };
@@ -247,6 +254,8 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
         color: agent.color,
         icon: agent.icon,
         access_level: agent.access_level,
+        requires_email: agent.requires_email,
+        chatwoot_inbox_identifier: agent.chatwoot_inbox_identifier,
         translations: cloneTranslations(agent.translations, locales),
         prompts: clonePrompts(agent.prompts, locales),
       };
@@ -276,6 +285,8 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
       color: 'agent-support',
       icon: '🤖',
       access_level: 'public',
+      requires_email: false,
+      chatwoot_inbox_identifier: '',
       translations: createEmptyTranslations(locales),
       prompts: createEmptyPrompts(locales),
     });
@@ -569,6 +580,39 @@ function AgentEditor({ agent, locales, defaultLocale, onSave, onCancel }: AgentE
           value={formData.path}
           onChange={(event) => setFormData((prev) => ({ ...prev, path: event.target.value }))}
           required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="chatwoot_inbox_identifier" className="text-gray-900 font-medium">
+          {t('chatwootInboxIdentifier.label')}
+        </Label>
+        <Input
+          id="chatwoot_inbox_identifier"
+          value={formData.chatwoot_inbox_identifier}
+          onChange={(event) => setFormData((prev) => ({ ...prev, chatwoot_inbox_identifier: event.target.value }))}
+          placeholder={t('chatwootInboxIdentifier.placeholder')}
+        />
+        <p className="text-sm text-muted-foreground mt-1">
+          {t('chatwootInboxIdentifier.help')}
+        </p>
+      </div>
+
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Label htmlFor="requires_email" className="text-gray-900 font-medium">
+            {t('requiresEmail.label')}
+          </Label>
+          <p className="text-sm text-muted-foreground mt-1 max-w-prose">
+            {t('requiresEmail.help')}
+          </p>
+        </div>
+        <Switch
+          id="requires_email"
+          checked={formData.requires_email}
+          onCheckedChange={(checked) =>
+            setFormData((prev) => ({ ...prev, requires_email: checked }))
+          }
         />
       </div>
 

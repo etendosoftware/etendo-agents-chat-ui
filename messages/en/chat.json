@@ -17,7 +17,11 @@
     "connection": "Connection error",
     "connect": "Could not connect with {agentName}. {error}",
     "unknown": "Unknown error",
-    "emptyBody": "Response body is empty"
+    "emptyBody": "Response body is empty",
+    "invalidEmailTitle": "Invalid email",
+    "invalidEmail": "Please enter a valid email address.",
+    "emailRequiredTitle": "Email required",
+    "emailRequired": "This agent requires a contact email before you can start chatting."
   },
   "history": {
     "newChat": "New chat",
@@ -54,9 +58,28 @@
     "videoAnalysis": "(Video Analysis)",
     "messagePlaceholder": "Write a message here...",
     "greeting": "Hi! I'm the {agentName}",
+    "forwardedMessage": "Your message was forwarded to our team. They'll follow up shortly.",
+    "emailGate": {
+        "title": "We need your email before starting",
+        "description": "Share an email so we can send follow-ups and loop in a human if needed.",
+        "placeholder": "you@example.com",
+        "submit": "Save email",
+        "validating": "Validating...",
+        "invalid": "The email you entered isn't valid.",
+        "verificationError": "We couldn't verify your email. Please try again.",
+        "change": "Change email",
+        "saved": "We'll use {email} for this chat.",
+        "updateHint": "You can update it any time."
+    },
     "toast": {
         "sent": "Message sent",
-        "received": "Response received from {agentName}"
+        "received": "Response received from {agentName}",
+        "forwarded": "Message forwarded to the {agentName} team",
+        "emailSavedTitle": "Email saved",
+        "emailSaved": "We'll reach out at {email}."
+    },
+    "humanAgent": {
+      "active": "A human teammate joined the conversation. Replies might take a little longer."
     }
   },
   "feedback": {

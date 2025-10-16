@@ -36,6 +36,15 @@
     "path": "Agent Path",
     "icon": "Icon (Emoji)",
     "color": "Color",
+    "chatwootInboxIdentifier": {
+      "label": "Chatwoot inbox identifier",
+      "placeholder": "api-token-uuid",
+      "help": "Needed only for API inboxes handled by Chatwoot. Leave empty for standard n8n agents."
+    },
+    "requiresEmail": {
+      "label": "Require email before chatting",
+      "help": "When enabled the chat input stays disabled until the visitor provides a contact email."
+    },
     "accessLevel": {
       "label": "Access Level",
       "placeholder": "Select an access level",

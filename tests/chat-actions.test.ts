@@ -55,7 +55,13 @@ describe('chat actions', () => {
 
     const results = await getConversationHistory('demo@example.com', 'agent-1')
 
-    expect(findMock).toHaveBeenCalledWith({ email: 'demo@example.com', agentId: 'agent-1' })
+    expect(findMock).toHaveBeenCalledWith({
+      agentId: 'agent-1',
+      email: {
+        $options: 'i',
+        $regex: '^demo@example\\.com$',
+      },
+    })
     expect(sortMock).toHaveBeenCalledWith({ updatedAt: -1, _id: -1 })
     expect(skipMock).toHaveBeenCalledWith(0)
     expect(limitMock).toHaveBeenCalledWith(10)
@@ -77,8 +83,11 @@ describe('chat actions', () => {
     await getConversationHistory('demo@example.com', 'agent-1', { searchTerm: 'sales', page: 2, limit: 5 })
 
     expect(findMock).toHaveBeenCalledWith({
-      email: 'demo@example.com',
       agentId: 'agent-1',
+      email: {
+        $options: 'i',
+        $regex: '^demo@example\\.com$',
+      },
       conversationTitle: { $regex: 'sales', $options: 'i' },
     })
     expect(skipMock).toHaveBeenCalledWith(5)
@@ -89,17 +98,22 @@ describe('chat actions', () => {
     findOneMock.mockResolvedValue({
       messages: [{ type: 'ai', data: { content: 'Hello there' } }],
       sessionId: 'session-xyz',
+      chatwootConversationId: '12345',
     })
 
     const result = await getMessagesForConversation('507f1f77bcf86cd799439011', 'demo@example.com')
 
     expect(findOneMock).toHaveBeenCalledWith({
       _id: expect.any(Object),
-      email: 'demo@example.com',
+      email: {
+        $options: 'i',
+        $regex: '^demo@example\\.com$',
+      },
     })
     expect(result).toEqual({
       messages: [{ type: 'ai', data: { content: 'Hello there' } }],
       sessionId: 'session-xyz',
+      chatwootConversationId: '12345',
     })
   })
 
@@ -108,6 +122,31 @@ describe('chat actions', () => {
 
     const result = await getMessagesForConversation('507f1f77bcf86cd799439012', 'demo@example.com')
 
-    expect(result).toEqual({ messages: [], sessionId: null })
+    expect(result).toEqual({ messages: [], sessionId: null, chatwootConversationId: null })
   })
+
+  it('skips email filter when user email is empty', async () => {
+    await getConversationHistory('   ', 'agent-1')
+
+    expect(findMock).toHaveBeenCalledWith({ agentId: 'agent-1' })
+  })
+
+  it('matches conversations by email ignoring case', async () => {
+    findOneMock.mockResolvedValue({
+      messages: [],
+      sessionId: 'session-case',
+      chatwootConversationId: null,
+    })
+
+    await getMessagesForConversation('507f1f77bcf86cd799439013', '  Demo@Example.COM  ')
+
+    expect(findOneMock).toHaveBeenCalledWith({
+      _id: expect.any(Object),
+      email: {
+        $regex: '^Demo@Example\\.COM$',
+        $options: 'i',
+      },
+    })
+  })
+
 })

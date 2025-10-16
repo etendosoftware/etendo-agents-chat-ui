@@ -21,6 +21,7 @@ interface ChatLayoutProps {
   conversationId?: string;
   initialMessages: any[];
   initialSessionId: string | null;
+  initialChatwootConversationId?: string | null;
   initialConversations: Conversation[];
   agentPath: string;
   userRole: string | null;
@@ -33,6 +34,7 @@ export default function ChatLayout({
   conversationId, 
   initialMessages, 
   initialSessionId, 
+  initialChatwootConversationId,
   initialConversations, 
   agentPath, 
   userRole,
@@ -69,6 +71,7 @@ export default function ChatLayout({
             conversationId={conversationId}
             initialMessages={initialMessages}
             initialSessionId={initialSessionId}
+            initialChatwootConversationId={initialChatwootConversationId}
             initialPrompts={initialPrompts}
           />
         </main>
@@ -108,6 +111,7 @@ export default function ChatLayout({
               conversationId={conversationId}
               initialMessages={initialMessages}
               initialSessionId={initialSessionId}
+              initialChatwootConversationId={initialChatwootConversationId}
               initialPrompts={initialPrompts}
             />
           </SidebarInset>

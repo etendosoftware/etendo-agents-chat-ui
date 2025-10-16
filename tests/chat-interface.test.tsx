@@ -8,6 +8,17 @@ const pushMock = vi.hoisted(() => vi.fn())
 const pathnameMock = vi.hoisted(() => vi.fn(() => '/en/chat/sales'))
 const createObjectURLMock = vi.hoisted(() => vi.fn(() => 'blob://file'))
 
+class NoopEventSource {
+  url: string
+  onerror: ((event: any) => void) | null = null
+  constructor(url: string) {
+    this.url = url
+  }
+  addEventListener() {}
+  removeEventListener() {}
+  close() {}
+}
+
 vi.mock('@/lib/supabaseClient', () => ({
   supabase: {
     auth: {
@@ -67,6 +78,7 @@ describe('ChatInterface', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    sessionStorage.clear()
     global.URL.createObjectURL = createObjectURLMock
     pathnameMock.mockReturnValue('/en/chat/sales')
     window.fetch = vi.fn(() =>
@@ -77,10 +89,12 @@ describe('ChatInterface', () => {
       ),
     ) as unknown as typeof fetch
     window.gtag = vi.fn()
+    ;(window as any).EventSource = NoopEventSource as any
   })
 
   afterEach(() => {
     delete window.gtag
+    ;(window as any).EventSource = NoopEventSource as any
     pushMock.mockClear()
   })
 
@@ -96,7 +110,7 @@ describe('ChatInterface', () => {
     )
 
     const tInterface = createTranslator('en', 'chat.interface')
-    const textarea = screen.getByPlaceholderText(tInterface('messagePlaceholder'))
+    const textarea = screen.getAllByPlaceholderText(tInterface('messagePlaceholder'))[0] as HTMLTextAreaElement
     fireEvent.change(textarea, { target: { value: 'Hola agente' } })
 
     const form = container.querySelector('form')
@@ -134,7 +148,7 @@ describe('ChatInterface', () => {
     )
 
     const tInterface = createTranslator('en', 'chat.interface')
-    const textarea = screen.getByPlaceholderText(tInterface('messagePlaceholder'))
+    const textarea = screen.getAllByPlaceholderText(tInterface('messagePlaceholder'))[0] as HTMLTextAreaElement
     fireEvent.change(textarea, { target: { value: 'Nuevo chat' } })
 
     const form = container.querySelector('form')!
@@ -180,7 +194,7 @@ describe('ChatInterface', () => {
     )
 
     const tInterface = createTranslator('en', 'chat.interface')
-    const textarea = screen.getByPlaceholderText(tInterface('messagePlaceholder'))
+    const textarea = screen.getAllByPlaceholderText(tInterface('messagePlaceholder'))[0] as HTMLTextAreaElement
     fireEvent.change(textarea, { target: { value: 'Hola' } })
 
     const form = container.querySelector('form')!
@@ -229,5 +243,44 @@ describe('ChatInterface', () => {
     expect(payload.get('file_0')).toBeInstanceOf(File)
     expect((payload.get('file_0') as File).name).toBe('notes.txt')
     expect(payload.get('videoAnalysis')).toBe('true')
+  })
+
+  it('envía adjuntos a chatwoot sin texto adicional', async () => {
+    const headers = new Headers({
+      'Content-Type': 'application/json',
+      'x-agent-integration': 'chatwoot',
+      'x-chatwoot-conversation': 'chatwoot-321',
+    })
+
+    const fetchMock = window.fetch as unknown as Mock
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ forwarded: true, conversationId: 'chatwoot-321' }), {
+        status: 200,
+        headers,
+      }),
+    )
+
+    const { container } = renderWithIntl(
+      <ChatInterface
+        agent={{ ...agent, chatwoot_inbox_identifier: 'inbox-2' }}
+        user={{ email: 'guest@example.com' } as any}
+        conversationId="chatwoot-conv"
+        initialMessages={[]}
+        initialSessionId="session-chatwoot"
+      />,
+    )
+
+    fireEvent.click(screen.getByText('Upload Mock'))
+
+    const form = container.querySelector('form')!
+    fireEvent.submit(form)
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    const [[, options]] = fetchMock.mock.calls
+    const formData = options!.body as FormData
+    expect(formData.get('message')).toBe('')
+    expect(formData.get('file_0')).toBeInstanceOf(File)
+    expect((formData.get('file_0') as File).name).toBe('notes.txt')
   })
 })

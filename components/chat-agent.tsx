@@ -23,6 +23,8 @@ export interface Agent {
   color: string
   icon: string
   access_level: 'public' | 'non_client' | 'partner' | 'admin'
+  requires_email?: boolean
+  chatwoot_inbox_identifier?: string | null
 }
 
 export interface Message {

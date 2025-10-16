@@ -9,8 +9,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'URL is required' }, { status: 400 });
   }
 
-  console.log(`Fetching preview for URL: ${url}`);
-
   try {
     const response = await fetch(url, {
       headers: {
@@ -45,8 +43,6 @@ export async function GET(request: NextRequest) {
     const title = getMetaTag('title') || $('title').first().text() || url;
     const description = getMetaTag('description');
     const image = getMetaTag('image');
-
-    console.log('Extracted metadata:', { title, description, image });
 
     return NextResponse.json({
       title,

@@ -15,3 +15,22 @@ if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.scrollIntoView)
     // no-op polyfill for tests
   }
 }
+
+import { vi } from 'vitest'
+vi.mock('server-only', () => ({}))
+
+if (typeof (globalThis as any).File === 'undefined') {
+  class TestFile extends Blob {
+    name: string
+    lastModified: number
+    webkitRelativePath = ''
+
+    constructor(parts: BlobPart[], name: string, options?: FilePropertyBag) {
+      super(parts, options)
+      this.name = name
+      this.lastModified = options?.lastModified ?? Date.now()
+    }
+  }
+
+  ;(globalThis as any).File = TestFile
+}

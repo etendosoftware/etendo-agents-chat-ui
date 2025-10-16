@@ -36,6 +36,15 @@
     "path": "Ruta del agente",
     "icon": "Icono (Emoji)",
     "color": "Color",
+    "chatwootInboxIdentifier": {
+      "label": "Identificador del inbox de Chatwoot",
+      "placeholder": "token-api-o-uuid",
+      "help": "Solo necesario para inbox API gestionados en Chatwoot. Déjalo vacío para agentes n8n estándar."
+    },
+    "requiresEmail": {
+      "label": "Requerir email antes de chatear",
+      "help": "Si está activo el campo de mensaje queda bloqueado hasta que la persona ingrese un correo."
+    },
     "accessLevel": {
       "label": "Nivel de acceso",
       "placeholder": "Selecciona un nivel de acceso",
