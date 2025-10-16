@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { getConversationHistory, getMessagesForConversation } from '@/lib/actions/chat';
+import { fetchChatwootConversationMessages } from '@/lib/chatwoot/api';
 import { canUserAccessAgent } from '@/lib/agents/access';
 import ChatLayout from '@/components/chat-layout';
 import { Agent } from '@/components/chat-interface';
@@ -142,21 +143,51 @@ export default async function ChatPage({ params }: { params: { locale: string; a
 
     let initialMessages: any[] = [];
     let sessionId: string | null = null;
+    let initialChatwootConversationId: string | null = null;
 
     if (conversationId && user) {
         const conversationData = await getMessagesForConversation(conversationId, user.email!);
         initialMessages = conversationData.messages;
         sessionId = conversationData.sessionId;
+        initialChatwootConversationId = conversationData.chatwootConversationId ?? null;
     }
 
-    const transformedMessages = initialMessages.map((message, index) => ({
-      id: `${conversationId}-${index}`,
-      content: message.data.content,
-      sender: message.type === 'human' ? "user" as const : "agent" as const,
-      timestamp: new Date(),
-      agentId: agent.id,
-      conversationId: conversationId,
+    let transformedMessages = initialMessages.map((message, index) => ({
+        id: `${conversationId}-${index}`,
+        content: message.data.content,
+        sender: message.type === 'human' ? 'user' as const : 'agent' as const,
+        timestamp: new Date(),
+        agentId: agent.id,
+        conversationId,
     }));
+
+    if (agent.chatwoot_inbox_identifier && conversationId && user) {
+        const chatwootConversationId = initialChatwootConversationId ?? conversationId;
+        const chatwootMessages = await fetchChatwootConversationMessages(chatwootConversationId);
+
+       if (chatwootMessages.length > 0) {
+            transformedMessages = chatwootMessages
+                .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+                .map((message) => ({
+                    id: `${chatwootConversationId}-${message.id}`,
+                    content: message.content,
+                    sender: message.sender,
+                    timestamp: message.createdAt,
+                    agentId: agent.id,
+                    conversationId,
+                    attachments:
+                        message.attachments.length > 0
+                            ? message.attachments.map((attachment) => ({
+                                name: attachment.name,
+                                type: attachment.type,
+                                url: attachment.url,
+                                size: attachment.size,
+                              }))
+                            : undefined,
+                    audioUrl: message.audioUrl ?? undefined,
+                }));
+        }
+    }
 
     return (
         <ChatLayout
@@ -165,6 +196,7 @@ export default async function ChatPage({ params }: { params: { locale: string; a
             conversationId={conversationId}
             initialMessages={transformedMessages}
             initialSessionId={sessionId}
+            initialChatwootConversationId={agent.chatwoot_inbox_identifier ? (initialChatwootConversationId ?? null) : null}
             initialConversations={initialConversations}
             agentPath={params.agentPath}
             userRole={userRole}

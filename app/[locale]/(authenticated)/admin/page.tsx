@@ -61,6 +61,8 @@ export default async function AdminPage({ params }: { params: { locale: Locale }
             color,
             icon,
             access_level,
+            requires_email,
+            chatwoot_inbox_identifier,
             agent_translations(locale, name, description),
             agent_prompts(locale, id, content, sort_order)
         `);
@@ -101,16 +103,18 @@ export default async function AdminPage({ params }: { params: { locale: Locale }
             }),
         ) as Record<Locale, Array<{ id?: string; content: string; sort_order: number }>>;
 
-        return {
-            id: agent.id,
-            webhookurl: agent.webhookurl,
-            path: agent.path,
-            color: agent.color,
-            icon: agent.icon,
-            access_level: agent.access_level as Agent['access_level'],
-            translations: translationEntries,
-            prompts: promptEntries,
-        };
+            return {
+                id: agent.id,
+                webhookurl: agent.webhookurl,
+                path: agent.path,
+                color: agent.color,
+                icon: agent.icon,
+                access_level: agent.access_level as Agent['access_level'],
+                requires_email: agent.requires_email ?? false,
+                chatwoot_inbox_identifier: agent.chatwoot_inbox_identifier ?? '',
+                translations: translationEntries,
+                prompts: promptEntries,
+            };
     });
 
     return (

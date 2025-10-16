@@ -261,11 +261,16 @@ export default function MessageBubble({ message, agent, user, userAvatarUrl }: M
                   <Button
                     size="sm"
                     variant="ghost"
+                    type="button"
                     onClick={() => {
-                      const link = document.createElement("a")
-                      link.href = attachment.url
-                      link.download = attachment.name
-                      link.click()
+                      if (typeof window !== 'undefined') {
+                        const newWindow = window.open(attachment.url, '_blank')
+                        if (newWindow) {
+                          newWindow.opener = null
+                        } else {
+                          window.location.href = attachment.url
+                        }
+                      }
                     }}
                     className="h-6 w-6 p-0 hover:bg-white/10"
                   >

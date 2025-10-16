@@ -17,7 +17,11 @@
     "connection": "Error de conexión",
     "connect": "No se pudo conectar con {agentName}. {error}",
     "unknown": "Error desconocido",
-    "emptyBody": "El cuerpo de la respuesta está vacío"
+    "emptyBody": "El cuerpo de la respuesta está vacío",
+    "invalidEmailTitle": "Email inválido",
+    "invalidEmail": "Ingresa una dirección de correo válida.",
+    "emailRequiredTitle": "Email requerido",
+    "emailRequired": "Este agente necesita un correo de contacto antes de iniciar la conversación."
   },
   "history": {
     "newChat": "Nuevo chat",
@@ -54,9 +58,28 @@
     "videoAnalysis": "(Análisis de video)",
     "messagePlaceholder": "Escribe un mensaje aquí...",
     "greeting": "¡Hola! Soy el {agentName}",
+    "forwardedMessage": "Tu mensaje fue enviado a nuestro equipo. Te responderán a la brevedad.",
+    "emailGate": {
+        "title": "Necesitamos tu email antes de comenzar",
+        "description": "Déjanos un correo para enviarte novedades y sumar a una persona si hace falta.",
+        "placeholder": "tu@correo.com",
+        "submit": "Guardar email",
+        "validating": "Validando...",
+        "invalid": "El email ingresado no es válido.",
+        "verificationError": "No se pudo validar el email. Inténtalo nuevamente.",
+        "change": "Cambiar email",
+        "saved": "Usaremos {email} para esta conversación.",
+        "updateHint": "Puedes actualizarlo cuando quieras."
+    },
     "toast": {
         "sent": "Mensaje enviado",
-        "received": "Respuesta recibida de {agentName}"
+        "received": "Respuesta recibida de {agentName}",
+        "forwarded": "Mensaje enviado al equipo de {agentName}",
+        "emailSavedTitle": "Email guardado",
+        "emailSaved": "Te contactaremos en {email}."
+    },
+    "humanAgent": {
+      "active": "Un agente humano se sumó a la conversación. La respuesta puede demorar un poco."
     }
   },
   "feedback": {
