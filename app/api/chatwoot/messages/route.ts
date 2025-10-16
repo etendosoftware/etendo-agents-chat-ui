@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
+
 const CHATWOOT_BASE_URL = process.env.CHATWOOT_BASE_URL
 const CHATWOOT_ACCOUNT_ID = process.env.CHATWOOT_ACCOUNT_ID
 const CHATWOOT_API_TOKEN = process.env.CHATWOOT_API_TOKEN
