@@ -68,6 +68,7 @@ export default async function AdminPage({ params }: { params: { locale: Locale }
         `);
 
     if (error) {
+        console.error('Error fetching agents:', error);
         return <div>{t('agents.errors.loading')}</div>;
     }
 
