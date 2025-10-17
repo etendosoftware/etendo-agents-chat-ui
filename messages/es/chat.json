@@ -61,7 +61,7 @@
     "forwardedMessage": "Tu mensaje fue enviado a nuestro equipo. Te responderán a la brevedad.",
     "emailGate": {
         "title": "Necesitamos tu email antes de comenzar",
-        "description": "Déjanos un correo para enviarte novedades y sumar a una persona si hace falta.",
+        "description": "Necesitamos tu correo para saber con quién chateamos y poder asignarte a nuestro equipo cuando haga falta.",
         "placeholder": "tu@correo.com",
         "submit": "Guardar email",
         "validating": "Validando...",

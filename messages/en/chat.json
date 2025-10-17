@@ -61,7 +61,7 @@
     "forwardedMessage": "Your message was forwarded to our team. They'll follow up shortly.",
     "emailGate": {
         "title": "We need your email before starting",
-        "description": "Share an email so we can send follow-ups and loop in a human if needed.",
+        "description": "We ask for your email so we know who we're chatting with and can loop in a teammate when needed.",
         "placeholder": "you@example.com",
         "submit": "Save email",
         "validating": "Validating...",
