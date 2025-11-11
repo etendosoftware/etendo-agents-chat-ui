@@ -260,6 +260,17 @@ export default function ChatInterface({
     setChatwootHasHuman(false)
   }, [chatwootConversationId])
 
+  useEffect(() => {
+    if (conversationId === undefined || conversationId === null) {
+      setChatwootConversationId(null)
+      chatwootPendingSinceRef.current = null
+      chatwootKnownMessageIdsRef.current.clear()
+      if (chatwootEventSourceRef.current) {
+        chatwootEventSourceRef.current.close()
+      }
+    }
+  }, [conversationId])
+
   const normalizeChatwootMessage = useCallback(
     (item: any): Message | null => {
       if (!isChatwootAgent || !chatwootConversationId || !item) {
@@ -431,30 +442,29 @@ export default function ChatInterface({
     fetchChatwootMessages()
   }, [fetchChatwootMessages, isChatwootAgent, chatwootConversationId])
 
-  useEffect(() => {
-    if (!isChatwootAgent || !chatwootConversationId) {
-      if (chatwootEventSourceRef.current) {
-        chatwootEventSourceRef.current.close()
-        chatwootEventSourceRef.current = null
-      }
-      return
-    }
+  const normalizeChatwootMessageRef = useRef(normalizeChatwootMessage)
+  const commitChatwootMessagesRef = useRef(commitChatwootMessages)
 
-    if (typeof window === "undefined") {
+  useEffect(() => {
+    normalizeChatwootMessageRef.current = normalizeChatwootMessage
+    commitChatwootMessagesRef.current = commitChatwootMessages
+  }, [normalizeChatwootMessage, commitChatwootMessages])
+
+  useEffect(() => {
+    if (!isChatwootAgent || !chatwootConversationId || typeof window === "undefined") {
       return
     }
 
     const url = `/api/chatwoot/stream?conversationId=${encodeURIComponent(chatwootConversationId)}`
     const eventSource = new EventSource(url)
-    chatwootEventSourceRef.current = eventSource
 
     const handleMessage = (event: MessageEvent) => {
       try {
         const payload = JSON.parse(event.data)
         const rawMessage = payload?.message ?? payload
-        const normalized = normalizeChatwootMessage(rawMessage)
+        const normalized = normalizeChatwootMessageRef.current(rawMessage)
         if (normalized) {
-          commitChatwootMessages([normalized])
+          commitChatwootMessagesRef.current([normalized])
         }
       } catch (error) {
         console.error("[chatwoot] Error procesando SSE", error)
@@ -477,27 +487,19 @@ export default function ChatInterface({
 
     eventSource.addEventListener("chatwoot_message", handleMessage)
     eventSource.addEventListener("chatwoot_handoff", handleHandoff)
-    eventSource.addEventListener("ping", () => {
-      // keep-alive
-    })
+    eventSource.addEventListener("ping", () => { /* keep-alive */ })
 
     eventSource.onerror = (event) => {
       console.error("[chatwoot] SSE error", event)
       eventSource.close()
-      if (chatwootEventSourceRef.current === eventSource) {
-        chatwootEventSourceRef.current = null
-      }
     }
 
     return () => {
       eventSource.removeEventListener("chatwoot_message", handleMessage)
       eventSource.removeEventListener("chatwoot_handoff", handleHandoff)
       eventSource.close()
-      if (chatwootEventSourceRef.current === eventSource) {
-        chatwootEventSourceRef.current = null
-      }
     }
-  }, [chatwootConversationId, commitChatwootMessages, isChatwootAgent, normalizeChatwootMessage])
+  }, [chatwootConversationId, isChatwootAgent])
 
   const handleEmailSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -708,7 +710,7 @@ export default function ChatInterface({
         const conversationFromPayload = chatwootData?.conversationId
         const effectiveConversationId = conversationFromHeader ?? conversationFromPayload ?? conversationId ?? null
 
-      if (!effectiveConversationId) {
+      if (typeof window === "undefined") {
         setIsLoading(false)
         setIsResponding(false)
         throw new Error(tErrors('connection'))
