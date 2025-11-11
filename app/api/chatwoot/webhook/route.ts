@@ -95,13 +95,14 @@ function extractConversation(payload: any, message: any) {
 
 function resolveConversationId(payload: any, message: any, conversation: any) {
   const ids = [
+    conversation?.id,
     message?.conversation_id,
     message?.conversation?.id,
-    conversation?.id,
     payload?.conversation?.id,
     payload?.payload?.conversation?.id,
     payload?.conversation_id,
     payload?.payload?.conversation_id,
+    payload?.id,
   ]
 
   for (const id of ids) {

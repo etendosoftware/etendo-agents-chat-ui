@@ -5,7 +5,17 @@ type SSEClient = {
   keepAlive: NodeJS.Timeout
 }
 
-const conversationClients = new Map<string, Set<SSEClient>>()
+const globalForSSE = globalThis as unknown as {
+  conversationClients: Map<string, Set<SSEClient>> | undefined
+}
+
+const conversationClients =
+  globalForSSE.conversationClients ?? new Map<string, Set<SSEClient>>()
+
+if (process.env.NODE_ENV !== "production") {
+  globalForSSE.conversationClients = conversationClients
+}
+
 
 function formatEvent(event: string, data: unknown) {
   const payload = JSON.stringify(data ?? {})
@@ -34,7 +44,11 @@ export function registerConversationStream(conversationId: string) {
         try {
           controller.enqueue(formatEvent("ping", { ts: Date.now() }))
         } catch (error) {
-          console.error("[chatwoot] SSE ping error", error)
+          if(currentClient) {
+            clearInterval(currentClient.keepAlive)
+            removeClient(conversationId, currentClient)
+            currentClient = null
+          }
         }
       }, 25000)
 
@@ -54,7 +68,6 @@ export function registerConversationStream(conversationId: string) {
       if (!currentClient) {
         return
       }
-
       clearInterval(currentClient.keepAlive)
       removeClient(conversationId, currentClient)
       currentClient = null
