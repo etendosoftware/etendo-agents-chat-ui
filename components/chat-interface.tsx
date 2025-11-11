@@ -491,7 +491,6 @@ export default function ChatInterface({
 
     eventSource.onerror = (event) => {
       console.error("[chatwoot] SSE error", event)
-      eventSource.close()
     }
 
     return () => {
