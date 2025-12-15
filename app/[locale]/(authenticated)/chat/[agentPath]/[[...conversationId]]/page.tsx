@@ -71,10 +71,11 @@ async function getUserRole(supabaseClient: any, userId: string) {
     return profile.role as 'admin' | 'partner' | 'non_client';
 }
 
-export default async function ChatPage({ params }: { params: { locale: string; agentPath: string; conversationId?: string[] } }) {
+export default async function ChatPage({ params, searchParams }: { params: { locale: string; agentPath: string; conversationId?: string[] }; searchParams: { [key: string]: string | string[] | undefined } }) {
     const t = await getTranslations('chat');
     const supabaseClient = createClient();
     let conversationId = params.conversationId?.[0];
+    const newChatKey = typeof searchParams?.newChat === 'string' ? searchParams.newChat : undefined;
 
     const { data: { user } } = await supabaseClient.auth.getUser();
 
@@ -204,6 +205,7 @@ export default async function ChatPage({ params }: { params: { locale: string; a
                 id: prompt.id ?? `prompt-${index}`,
                 content: prompt.content,
             }))}
+            newChatKey={newChatKey}
         />
     );
 }
