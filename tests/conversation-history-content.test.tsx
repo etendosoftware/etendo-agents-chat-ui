@@ -93,6 +93,26 @@ describe('ConversationHistoryContent', () => {
     expect(await screen.findByText(tHistory('newChat'))).toBeInTheDocument()
   })
 
+  it('navigates with a unique query param when starting another new chat', async () => {
+    fetchConversationsMock.mockResolvedValueOnce([])
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1720000000000)
+
+    try {
+      const tHistory = createTranslator('en', 'chat.history')
+
+      renderWithProvider(
+        <ConversationHistoryContent initialConversations={[]} agentPath="support" agentId="agent-1" />,
+      )
+
+      const newChatButtons = await screen.findAllByRole('button', { name: new RegExp(tHistory('newChat'), 'i') })
+      fireEvent.click(newChatButtons[0])
+
+      expect(pushMock).toHaveBeenCalledWith('/en/chat/support?newChat=1720000000000')
+    } finally {
+      nowSpy.mockRestore()
+    }
+  })
+
   it('loads additional pages when clicking Load More', async () => {
     const initial = Array.from({ length: 10 }, (_, index) => buildConversation(`conv-${index}`, `Conversation ${index}`))
     fetchConversationsMock

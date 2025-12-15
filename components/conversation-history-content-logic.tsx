@@ -118,6 +118,10 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
     }
     return conversations;
   }, [conversations, activeConversationId, isLoading, t]);
+  const handleNewChatNavigation = useCallback(() => {
+    const timestamp = Date.now();
+    router.push(`${localePrefix}/chat/${agentPath}?newChat=${timestamp}`);
+  }, [router, localePrefix, agentPath]);
 
   
 
@@ -158,12 +162,10 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
   return (
     <SidebarContent className="flex flex-col h-full bg-gradient-custom">
       <div className="p-2 mt-12 md:mt-24">
-        <Link href={`${localePrefix}/chat/${agentPath}`} className="w-full">
-          <Button className="w-full justify-start">
-            <PlusIcon className="mr-2 h-4 w-4" />
-            {t('newChat')}
-          </Button>
-        </Link>
+        <Button className="w-full justify-start" type="button" onClick={handleNewChatNavigation}>
+          <PlusIcon className="mr-2 h-4 w-4" />
+          {t('newChat')}
+        </Button>
       </div>
       <div className="p-2">
         <Input
@@ -188,9 +190,15 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
                 <SidebarMenuItem key={item._id}>
                   <div className="flex items-center justify-between w-full group">
                     <SidebarMenuButton asChild className={`${isActive ? "bg-indigo-300 hover:bg-indigo-200" : "hover:bg-indigo-200"} flex-1 w-0`}>
-                      <Link href={item._id === 'new-chat' ? `${localePrefix}/chat/${agentPath}` : `${localePrefix}/chat/${agentPath}/${item._id}`} className="truncate">
-                        <span>{cleanedTitle}</span>
-                      </Link>
+                      {item._id === 'new-chat' ? (
+                        <button type="button" onClick={handleNewChatNavigation} className="truncate text-left w-full">
+                          <span>{cleanedTitle}</span>
+                        </button>
+                      ) : (
+                        <Link href={`${localePrefix}/chat/${agentPath}/${item._id}`} className="truncate">
+                          <span>{cleanedTitle}</span>
+                        </Link>
+                      )}
                     </SidebarMenuButton>
                     {item._id !== 'new-chat' && (
                       <Popover>

@@ -26,6 +26,7 @@ interface ChatLayoutProps {
   agentPath: string;
   userRole: string | null;
   initialPrompts?: AgentPromptSuggestion[];
+  newChatKey?: string;
 }
 
 export default function ChatLayout({ 
@@ -39,7 +40,9 @@ export default function ChatLayout({
   agentPath, 
   userRole,
   initialPrompts = [],
+  newChatKey,
 }: ChatLayoutProps) {
+  const chatInstanceKey = conversationId ?? newChatKey ?? 'new-chat';
   useEffect(() => {
     if (typeof window === 'undefined' || !window.gtag) {
       return;
@@ -66,6 +69,7 @@ export default function ChatLayout({
         />
         <main className="flex flex-1 overflow-hidden">
           <ChatInterface
+            key={chatInstanceKey}
             agent={agent}
             user={user}
             conversationId={conversationId}
@@ -106,6 +110,7 @@ export default function ChatLayout({
           {/* Main Content */}
           <SidebarInset>
             <ChatInterface
+              key={chatInstanceKey}
               agent={agent}
               user={user}
               conversationId={conversationId}
