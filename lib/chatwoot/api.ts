@@ -3,6 +3,25 @@ import "server-only"
 const CHATWOOT_BASE_URL = process.env.CHATWOOT_BASE_URL
 const CHATWOOT_ACCOUNT_ID = process.env.CHATWOOT_ACCOUNT_ID
 const CHATWOOT_API_TOKEN = process.env.CHATWOOT_API_TOKEN
+const CHATWOOT_MESSAGES_TIMEOUT_MS = 8000
+
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
 
 interface RawChatwootAttachment {
   id?: number | string
@@ -23,6 +42,7 @@ interface RawChatwootMessage {
   id?: number | string
   message_id?: number | string
   content?: string | null
+  private?: boolean
   message_type?: number | string
   created_at?: string | number | null
   created_at_i?: number | null
@@ -61,39 +81,74 @@ export async function fetchChatwootConversationMessages(
   }
 
   const base = CHATWOOT_BASE_URL.replace(/\/$/, "")
-  const url = `${base}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/conversations/${trimmedConversationId}/messages`
+  const baseUrl = `${base}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/conversations/${trimmedConversationId}/messages`
 
-  const response = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      "api_access_token": CHATWOOT_API_TOKEN,
-    },
-    cache: "no-store",
-  })
+  const MAX_PAGES = 5
+  const PAGE_SIZE = 20
+  let allRawMessages: RawChatwootMessage[] = []
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => null)
-    console.error("[chatwoot] Error al obtener mensajes (server):", response.status, errorText)
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const url = `${baseUrl}?page=${page}`
+
+    let response: Response
+    try {
+      response = await fetchWithTimeout(
+        url,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "api_access_token": CHATWOOT_API_TOKEN,
+          },
+          cache: "no-store",
+        },
+        CHATWOOT_MESSAGES_TIMEOUT_MS,
+      )
+    } catch (error) {
+      const isAbortError = error instanceof Error && error.name === "AbortError"
+      if (isAbortError) {
+        console.warn(
+          `[chatwoot] Timeout al obtener mensajes para ${trimmedConversationId} página ${page} (${CHATWOOT_MESSAGES_TIMEOUT_MS}ms)`,
+        )
+      } else {
+        console.error("[chatwoot] Error de red al obtener mensajes (server):", error)
+      }
+      break
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => null)
+      console.error("[chatwoot] Error al obtener mensajes (server):", response.status, errorText)
+      break
+    }
+
+    const data = await response.json().catch(() => null)
+
+    let rawMessages: RawChatwootMessage[] = []
+    if (Array.isArray(data)) {
+      rawMessages = data
+    } else if (Array.isArray(data?.payload)) {
+      rawMessages = data.payload
+    } else if (Array.isArray(data?.data)) {
+      rawMessages = data.data
+    }
+
+    if (!rawMessages || rawMessages.length === 0) {
+      break
+    }
+
+    allRawMessages = allRawMessages.concat(rawMessages)
+
+    if (rawMessages.length < PAGE_SIZE) {
+      break
+    }
+  }
+
+  if (allRawMessages.length === 0) {
     return []
   }
 
-  const data = await response.json().catch(() => null)
-
-  let rawMessages: RawChatwootMessage[] = []
-  if (Array.isArray(data)) {
-    rawMessages = data
-  } else if (Array.isArray(data?.payload)) {
-    rawMessages = data.payload
-  } else if (Array.isArray(data?.data)) {
-    rawMessages = data.data
-  }
-
-  if (!rawMessages || rawMessages.length === 0) {
-    return []
-  }
-
-  return rawMessages
-    .map((item) => {
+  return allRawMessages
+    .map<NormalizedChatwootMessage | null>((item) => {
       const rawId = item?.id ?? item?.message_id ?? item?.created_at
       const messageId = rawId !== undefined && rawId !== null ? String(rawId) : undefined
       if (!messageId) {

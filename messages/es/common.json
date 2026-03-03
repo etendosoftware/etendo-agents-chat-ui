@@ -9,6 +9,9 @@
     "english": "Inglés",
     "spanish": "Español"
   },
+  "account": {
+    "label": "Cuenta"
+  },
   "actions": {
     "chat": "Chatear",
     "newAgent": "Nuevo agente"

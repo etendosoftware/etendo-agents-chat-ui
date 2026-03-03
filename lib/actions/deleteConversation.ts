@@ -17,6 +17,10 @@ export async function deleteConversation(conversationId: string): Promise<{ succ
     return { success: false, error: 'Conversation ID is required' };
   }
 
+  if (!ObjectId.isValid(conversationId)) {
+    return { success: false, error: 'Invalid conversation ID' };
+  }
+
   try {
     const { db } = await connectToDatabase();
     const result = await db.collection('conversations').deleteOne({

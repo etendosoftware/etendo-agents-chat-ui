@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const originalEnv = { ...process.env }
@@ -11,6 +11,7 @@ function sign(body: string, secret: string) {
 describe('Chatwoot webhook route', () => {
   beforeEach(() => {
     process.env = { ...originalEnv }
+    vi.resetModules()
   })
 
   afterEach(() => {

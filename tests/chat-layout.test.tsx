@@ -1,9 +1,14 @@
 import React, { type ReactNode } from 'react'
 import { render, waitFor } from '@testing-library/react'
-import ChatLayout from '../components/chat-layout'
 import { vi } from 'vitest'
 
-const chatInterfaceMock = vi.fn(() => <div data-testid="chat-interface" />)
+import ChatLayout from '../components/chat-layout'
+
+const chatInterfaceMock = vi.fn((props?: any) => <div data-testid="chat-interface" data-props={Boolean(props)} />)
+
+const chatContextState = vi.hoisted(() => ({
+  conversationId: 'conv-1' as string | undefined,
+}))
 
 vi.mock('../components/chat-interface', () => ({
   __esModule: true,
@@ -24,6 +29,12 @@ vi.mock('../components/global-header', () => ({
   GlobalHeader: () => <header data-testid="global-header" />,
 }))
 
+vi.mock('@/lib/chat-context', () => ({
+  useChatContext: () => ({
+    conversationId: chatContextState.conversationId,
+  }),
+}))
+
 describe('ChatLayout', () => {
   const agent = {
     id: 'agent-1',
@@ -38,7 +49,7 @@ describe('ChatLayout', () => {
 
   const baseProps = {
     agent,
-    conversationId: 'conv-1',
+    initialConversationId: 'conv-1',
     initialMessages: [],
     initialSessionId: 'session-1',
     initialConversations: [],
@@ -49,6 +60,7 @@ describe('ChatLayout', () => {
   beforeEach(() => {
     window.gtag = vi.fn()
     chatInterfaceMock.mockClear()
+    chatContextState.conversationId = 'conv-1'
   })
 
   afterEach(() => {
@@ -77,11 +89,13 @@ describe('ChatLayout', () => {
   })
 
   it('marks guests correctly when no user session is present', async () => {
+    chatContextState.conversationId = undefined
+
     render(
       <ChatLayout
         {...baseProps}
         user={null}
-        conversationId={undefined}
+        initialConversationId={undefined}
         userRole={null}
       />,
     )
@@ -108,7 +122,7 @@ describe('ChatLayout', () => {
     )
 
     expect(chatInterfaceMock).toHaveBeenCalled()
-    const props = chatInterfaceMock.mock.calls[0][0]
+    const props = (chatInterfaceMock.mock.calls as any[][])[0]?.[0]
     expect(props.initialChatwootConversationId).toBe('chatwoot-999')
   })
 })

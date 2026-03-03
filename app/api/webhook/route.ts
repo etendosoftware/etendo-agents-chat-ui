@@ -375,14 +375,15 @@ export async function POST(request: NextRequest) {
       }
 
       const conversationForResponse = chatwootConversationId ?? conversationId ?? null
-      const ackPayload = {
+      const ackPayload: Record<string, unknown> = {
         forwarded: true,
         conversationId: conversationForResponse,
       }
 
+      let mongoConversationId: string | null = null
       if (userEmail && conversationForResponse) {
         try {
-          await upsertChatwootConversation({
+          mongoConversationId = await upsertChatwootConversation({
             email: normalizedEmail || userEmail,
             agentId,
             chatwootConversationId: conversationForResponse,
@@ -391,6 +392,10 @@ export async function POST(request: NextRequest) {
         } catch (error) {
           console.error("[chatwoot] Error guardando conversación", error)
         }
+      }
+
+      if (mongoConversationId) {
+        ackPayload.mongoConversationId = mongoConversationId
       }
 
       const jsonResponse = NextResponse.json(ackPayload, { status: 200 })

@@ -1,8 +1,7 @@
 "use server"
 
 import { connectToDatabase } from "../mongodb"
-
-const escapeRegExp = (value: string) => value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+import { escapeRegExp } from "@/lib/utils/escape-regexp";
 
 interface UpsertChatwootConversationParams {
   email: string
@@ -16,7 +15,7 @@ export async function upsertChatwootConversation({
   agentId,
   chatwootConversationId,
   sessionId,
-}: UpsertChatwootConversationParams) {
+}: UpsertChatwootConversationParams): Promise<string | null> {
   try {
     const { db } = await connectToDatabase()
     const now = new Date()
@@ -51,17 +50,19 @@ export async function upsertChatwootConversation({
           ],
         }
 
-        const fallbackMatch = await conversationCollection.updateOne(fallbackFilter, {
-          $set: baseUpdate,
-        })
+        const fallbackMatch = await conversationCollection.findOneAndUpdate(
+          fallbackFilter,
+          { $set: baseUpdate },
+          { returnDocument: 'after' },
+        )
 
-        if (fallbackMatch.matchedCount > 0) {
-          return
+        if (fallbackMatch) {
+          return fallbackMatch._id.toHexString()
         }
       }
     }
 
-    await conversationCollection.updateOne(
+    const result = await conversationCollection.findOneAndUpdate(
       { agentId, chatwootConversationId },
       {
         $set: {
@@ -71,9 +72,12 @@ export async function upsertChatwootConversation({
           createdAt: now,
         },
       },
-      { upsert: true },
+      { upsert: true, returnDocument: 'after' },
     )
+
+    return result?._id?.toHexString() ?? null
   } catch (error) {
     console.error("[chatwoot] No se pudo registrar la conversación en DB", error)
+    return null
   }
 }

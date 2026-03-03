@@ -6,6 +6,8 @@ import Script from 'next/script'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages } from 'next-intl/server'
 import type { Locale } from '@/i18n/config'
+import QueryProvider from '@/components/query-provider'
+import { Toaster } from '@/components/ui/sonner'
 
 export const metadata: Metadata = {
   title: 'Etendo Agents',
@@ -22,8 +24,8 @@ export default async function LocaleLayout({
   const messages = await getMessages()
 
   return (
-    <html lang={locale}>
-      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang={locale} suppressHydrationWarning>
+      <body suppressHydrationWarning className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         {process.env.NEXT_PUBLIC_GA_ID && (
           <>
             <Script
@@ -43,11 +45,13 @@ export default async function LocaleLayout({
           </>
         )}
         <NextIntlClientProvider locale={locale} messages={messages}>
-          {children}
+          <QueryProvider>
+            {children}
+          </QueryProvider>
+          <Toaster />
         </NextIntlClientProvider>
         {/* <Analytics /> */}
       </body>
     </html>
   )
 }
-

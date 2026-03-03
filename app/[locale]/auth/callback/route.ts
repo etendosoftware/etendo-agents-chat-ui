@@ -65,8 +65,6 @@ export async function GET(request: Request, { params }: { params: { locale: stri
       if (updateError) {
         console.error("Error updating role:", updateError.message);
       }
-    } else {
-      console.log("Profile role is admin — skipping update");
     }
   } catch (err) {
     console.error("Unexpected DB error:", err);

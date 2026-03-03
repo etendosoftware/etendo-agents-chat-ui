@@ -1,51 +1,42 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, waitFor, fireEvent } from '@testing-library/react'
+
 import { ConversationHistoryContent } from '../components/conversation-history-content-logic'
 import { SidebarProvider } from '../components/ui/sidebar'
 import { renderWithIntl, createTranslator } from './utils/intl'
 
-const fetchConversationsMock = vi.hoisted(() => vi.fn())
-const getSingleConversationMock = vi.hoisted(() => vi.fn())
-const deleteConversationMock = vi.hoisted(() => vi.fn())
-const updateConversationTitleMock = vi.hoisted(() => vi.fn())
+const fetchNextPageMock = vi.hoisted(() => vi.fn())
+const mutateDeleteMock = vi.hoisted(() => vi.fn())
+const mutateUpdateMock = vi.hoisted(() => vi.fn())
+const prefetchMessagesMock = vi.hoisted(() => vi.fn())
 const toastMock = vi.hoisted(() => vi.fn())
-const pushMock = vi.fn()
+const navigateToConversationMock = vi.hoisted(() => vi.fn())
+const navigateToNewChatMock = vi.hoisted(() => vi.fn())
 
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: vi.fn().mockImplementation(() => ({
-    matches: false,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
-})
-
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: pushMock }),
-}))
+const useConversationsInfiniteMock = vi.hoisted(() => vi.fn())
+const useDeleteConversationMock = vi.hoisted(() => vi.fn())
+const useUpdateConversationTitleMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/components/ui/use-toast', () => ({
   useToast: () => ({ toast: toastMock }),
 }))
 
-vi.mock('@/lib/actions/conversations', () => ({
-  fetchConversations: fetchConversationsMock,
+vi.mock('@/lib/chat-context', () => ({
+  useChatContext: () => ({
+    navigateToConversation: navigateToConversationMock,
+    navigateToNewChat: navigateToNewChatMock,
+  }),
 }))
 
-vi.mock('@/lib/actions/getSingleConversation', () => ({
-  getSingleConversation: getSingleConversationMock,
+vi.mock('@/hooks/use-messages', () => ({
+  usePrefetchMessages: () => prefetchMessagesMock,
 }))
 
-vi.mock('@/lib/actions/deleteConversation', () => ({
-  deleteConversation: deleteConversationMock,
-}))
-
-vi.mock('@/lib/actions/updateConversationTitle', () => ({
-  updateConversationTitle: updateConversationTitleMock,
+vi.mock('@/hooks/use-conversations', () => ({
+  useConversationsInfinite: (...args: unknown[]) => useConversationsInfiniteMock(...args),
+  useDeleteConversation: (...args: unknown[]) => useDeleteConversationMock(...args),
+  useUpdateConversationTitle: (...args: unknown[]) => useUpdateConversationTitleMock(...args),
 }))
 
 const buildConversation = (id: string, title: string): any => ({
@@ -59,65 +50,76 @@ const buildConversation = (id: string, title: string): any => ({
 })
 
 describe('ConversationHistoryContent', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    pushMock.mockClear()
-
-    if (!('matchMedia' in window)) {
-      Object.defineProperty(window, 'matchMedia', {
-        writable: true,
-        value: vi.fn().mockImplementation(() => ({
-          matches: false,
-          addListener: vi.fn(),
-          removeListener: vi.fn(),
-          addEventListener: vi.fn(),
-          removeEventListener: vi.fn(),
-          dispatchEvent: vi.fn(),
-        })),
-      })
-    }
-  })
-
   const renderWithProvider = (ui: React.ReactNode) =>
     renderWithIntl(<SidebarProvider>{ui}</SidebarProvider>)
 
-  it('adds "New chat" shortcut when no active conversation', async () => {
-    fetchConversationsMock.mockResolvedValueOnce([])
+  beforeEach(() => {
+    vi.clearAllMocks()
 
+    useConversationsInfiniteMock.mockReturnValue({
+      data: {
+        pages: [[buildConversation('conv-1', 'Active conversation')]],
+      },
+      fetchNextPage: fetchNextPageMock,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      isLoading: false,
+      isFetching: false,
+    })
+
+    useDeleteConversationMock.mockReturnValue({
+      mutate: mutateDeleteMock,
+      isPending: false,
+    })
+
+    useUpdateConversationTitleMock.mockReturnValue({
+      mutate: mutateUpdateMock,
+      isPending: false,
+    })
+  })
+
+  it('renders New chat shortcut when no active conversation', async () => {
     const tHistory = createTranslator('en', 'chat.history')
 
     renderWithProvider(
       <ConversationHistoryContent initialConversations={[]} agentPath="support" agentId="agent-1" />,
     )
 
-    expect(await screen.findByText(tHistory('newChat'))).toBeInTheDocument()
+    const newChatButtons = await screen.findAllByRole('button', {
+      name: new RegExp(tHistory('newChat'), 'i'),
+    })
+
+    expect(newChatButtons.length).toBeGreaterThan(0)
   })
 
-  it('navigates with a unique query param when starting another new chat', async () => {
-    fetchConversationsMock.mockResolvedValueOnce([])
-    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1720000000000)
+  it('navigates to new chat on shortcut click', async () => {
+    const tHistory = createTranslator('en', 'chat.history')
 
-    try {
-      const tHistory = createTranslator('en', 'chat.history')
+    renderWithProvider(
+      <ConversationHistoryContent initialConversations={[]} agentPath="support" agentId="agent-1" />,
+    )
 
-      renderWithProvider(
-        <ConversationHistoryContent initialConversations={[]} agentPath="support" agentId="agent-1" />,
-      )
+    const newChatButtons = await screen.findAllByRole('button', {
+      name: new RegExp(tHistory('newChat'), 'i'),
+    })
+    fireEvent.click(newChatButtons[0])
 
-      const newChatButtons = await screen.findAllByRole('button', { name: new RegExp(tHistory('newChat'), 'i') })
-      fireEvent.click(newChatButtons[0])
-
-      expect(pushMock).toHaveBeenCalledWith('/en/chat/support?newChat=1720000000000')
-    } finally {
-      nowSpy.mockRestore()
-    }
+    expect(navigateToNewChatMock).toHaveBeenCalledWith('support', 'en')
   })
 
-  it('loads additional pages when clicking Load More', async () => {
-    const initial = Array.from({ length: 10 }, (_, index) => buildConversation(`conv-${index}`, `Conversation ${index}`))
-    fetchConversationsMock
-      .mockResolvedValueOnce(initial)
-      .mockResolvedValueOnce([buildConversation('conv-extra', 'Extra conversation')])
+  it('loads next page when clicking Load More', async () => {
+    const initial = Array.from({ length: 10 }, (_, index) =>
+      buildConversation(`conv-${index}`, `Conversation ${index}`),
+    )
+
+    useConversationsInfiniteMock.mockReturnValue({
+      data: { pages: [initial] },
+      fetchNextPage: fetchNextPageMock,
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      isLoading: false,
+      isFetching: false,
+    })
 
     const tHistory = createTranslator('en', 'chat.history')
 
@@ -129,19 +131,23 @@ describe('ConversationHistoryContent', () => {
       />,
     )
 
-    const loadMoreButton = await screen.findByRole('button', { name: new RegExp(tHistory('loadMore'), 'i') })
+    const loadMoreButton = await screen.findByRole('button', {
+      name: new RegExp(tHistory('loadMore'), 'i'),
+    })
     fireEvent.click(loadMoreButton)
 
-    await waitFor(() => expect(fetchConversationsMock).toHaveBeenCalledWith('agent-1', { searchTerm: '', page: 2, limit: 10 }))
-    expect(await screen.findByText('Extra conversation')).toBeInTheDocument()
+    expect(fetchNextPageMock).toHaveBeenCalled()
   })
 
-  it('deletes conversation and navigates away when active conversation removed', async () => {
+  it('deletes active conversation and navigates to new chat', async () => {
     const activeConversation = buildConversation('conv-1', 'Active conversation')
-    fetchConversationsMock.mockResolvedValueOnce([activeConversation])
-    deleteConversationMock.mockResolvedValue({ success: true })
-
     const tHistory = createTranslator('en', 'chat.history')
+
+    mutateDeleteMock.mockImplementation(
+      (_id: string, options?: { onSuccess?: (result: { success: boolean; error?: string }) => void }) => {
+        options?.onSuccess?.({ success: true })
+      },
+    )
 
     renderWithProvider(
       <ConversationHistoryContent
@@ -152,18 +158,17 @@ describe('ConversationHistoryContent', () => {
       />,
     )
 
-    // Open contextual menu
-    const menuButton = (await screen.findAllByRole('button')).find(button => button.className.includes('h-7'))
+    const menuButtons = await screen.findAllByRole('button')
+    const menuButton = menuButtons.find((button) =>
+      (button.className || '').includes('h-7 w-7'),
+    )
     expect(menuButton).toBeDefined()
     fireEvent.click(menuButton as HTMLButtonElement)
 
-    const deleteOption = await screen.findByText(tHistory('delete'))
-    fireEvent.click(deleteOption)
+    fireEvent.click(await screen.findByText(tHistory('delete')))
+    fireEvent.click(await screen.findByRole('button', { name: tHistory('deleteDialog.continue') }))
 
-    const continueButton = await screen.findByRole('button', { name: tHistory('deleteDialog.continue') })
-    fireEvent.click(continueButton)
-
-    await waitFor(() => expect(deleteConversationMock).toHaveBeenCalledWith('conv-1'))
-    expect(pushMock).toHaveBeenCalledWith('/en/chat/support')
+    await waitFor(() => expect(mutateDeleteMock).toHaveBeenCalled())
+    expect(navigateToNewChatMock).toHaveBeenCalledWith('support', 'en')
   })
 })

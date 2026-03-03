@@ -1,15 +1,17 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { getConversationHistory, getMessagesForConversation } from '@/lib/actions/chat';
+import { getConversationHistory, getConversationMetadata, getMessagesForConversation } from '@/lib/actions/chat';
 import { fetchChatwootConversationMessages } from '@/lib/chatwoot/api';
 import { canUserAccessAgent } from '@/lib/agents/access';
 import ChatLayout from '@/components/chat-layout';
 import { Agent } from '@/components/chat-interface';
+import { ChatContextProvider } from '@/lib/chat-context';
 import { randomUUID } from 'crypto';
 import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { defaultLocale } from '@/i18n/config';
+import type { Conversation } from '@/lib/actions/chat';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,11 +73,10 @@ async function getUserRole(supabaseClient: any, userId: string) {
     return profile.role as 'admin' | 'partner' | 'non_client';
 }
 
-export default async function ChatPage({ params, searchParams }: { params: { locale: string; agentPath: string; conversationId?: string[] }; searchParams: { [key: string]: string | string[] | undefined } }) {
+export default async function ChatPage({ params }: { params: { locale: string; agentPath: string; conversationId?: string[] } }) {
     const t = await getTranslations('chat');
     const supabaseClient = createClient();
     let conversationId = params.conversationId?.[0];
-    const newChatKey = typeof searchParams?.newChat === 'string' ? searchParams.newChat : undefined;
 
     const { data: { user } } = await supabaseClient.auth.getUser();
 
@@ -107,31 +108,44 @@ export default async function ChatPage({ params, searchParams }: { params: { loc
             </div>
         );
     }
-    const { data: translation } = await supabaseClient
-        .from('agent_translations')
-        .select('name, description')
-        .eq('agent_id', agent.id)
-        .eq('locale', params.locale)
-        .maybeSingle();
-
-    const { data: localePrompts } = await supabaseClient
-        .from('agent_prompts')
-        .select('id, locale, content, sort_order')
-        .eq('agent_id', agent.id)
-        .eq('locale', params.locale)
-        .order('sort_order', { ascending: true });
-
-    let prompts = localePrompts ?? [];
-
-    if ((!prompts || prompts.length === 0) && params.locale !== defaultLocale) {
-        const { data: fallbackPrompts } = await supabaseClient
+    const [translationResult, localePromptsResult, initialConversationsResult, conversationDataResult, fallbackPromptsResult] = await Promise.all([
+        supabaseClient
+            .from('agent_translations')
+            .select('name, description')
+            .eq('agent_id', agent.id)
+            .eq('locale', params.locale)
+            .maybeSingle(),
+        supabaseClient
             .from('agent_prompts')
             .select('id, locale, content, sort_order')
             .eq('agent_id', agent.id)
-            .eq('locale', defaultLocale)
-            .order('sort_order', { ascending: true });
+            .eq('locale', params.locale)
+            .order('sort_order', { ascending: true }),
+        conversationId && user
+            ? getConversationHistory(user.email!, agent.id, { limit: 10 })
+            : Promise.resolve(undefined),
+        conversationId && user
+            ? (agent.chatwoot_inbox_identifier
+                ? getConversationMetadata(conversationId, user.email!)
+                : getMessagesForConversation(conversationId, user.email!))
+            : Promise.resolve(null),
+        params.locale !== defaultLocale
+            ? supabaseClient
+                .from('agent_prompts')
+                .select('id, locale, content, sort_order')
+                .eq('agent_id', agent.id)
+                .eq('locale', defaultLocale)
+                .order('sort_order', { ascending: true })
+            : Promise.resolve(null),
+    ]);
 
-        prompts = fallbackPrompts ?? [];
+    const translation = translationResult.data;
+    const localePrompts = localePromptsResult.data;
+
+    let prompts = localePrompts ?? [];
+
+    if ((!prompts || prompts.length === 0) && fallbackPromptsResult && 'data' in fallbackPromptsResult) {
+        prompts = fallbackPromptsResult.data ?? [];
     }
 
     const localizedAgent: Agent = {
@@ -140,17 +154,25 @@ export default async function ChatPage({ params, searchParams }: { params: { loc
         description: translation?.description ?? agent.description,
     };
 
-    const initialConversations = user ? await getConversationHistory(user.email!, agent.id, { limit: 10 }) : [];
+    const initialConversations: Conversation[] | undefined = initialConversationsResult;
 
     let initialMessages: any[] = [];
     let sessionId: string | null = null;
     let initialChatwootConversationId: string | null = null;
 
-    if (conversationId && user) {
-        const conversationData = await getMessagesForConversation(conversationId, user.email!);
-        initialMessages = conversationData.messages;
-        sessionId = conversationData.sessionId;
-        initialChatwootConversationId = conversationData.chatwootConversationId ?? null;
+    if (conversationDataResult) {
+        if (agent.chatwoot_inbox_identifier) {
+            // conversationDataResult is metadata from getConversationMetadata
+            const metadata = conversationDataResult as { sessionId: string | null; chatwootConversationId: string | null };
+            sessionId = metadata.sessionId;
+            initialChatwootConversationId = metadata.chatwootConversationId;
+        } else {
+            // conversationDataResult is messages from getMessagesForConversation
+            const conversationData = conversationDataResult as { messages: any[]; sessionId: string | null; chatwootConversationId: string | null };
+            initialMessages = conversationData.messages;
+            sessionId = conversationData.sessionId;
+            initialChatwootConversationId = conversationData.chatwootConversationId ?? null;
+        }
     }
 
     let transformedMessages = initialMessages.map((message, index) => ({
@@ -163,49 +185,67 @@ export default async function ChatPage({ params, searchParams }: { params: { loc
     }));
 
     if (agent.chatwoot_inbox_identifier && conversationId && user) {
-        const chatwootConversationId = initialChatwootConversationId ?? conversationId;
-        const chatwootMessages = await fetchChatwootConversationMessages(chatwootConversationId);
+        if (initialChatwootConversationId) {
+            const chatwootConversationId = initialChatwootConversationId;
+            const chatwootMessages = await fetchChatwootConversationMessages(chatwootConversationId);
 
-       if (chatwootMessages.length > 0) {
-            transformedMessages = chatwootMessages
-                .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-                .map((message) => ({
-                    id: `${chatwootConversationId}-${message.id}`,
-                    content: message.content,
-                    sender: message.sender,
-                    timestamp: message.createdAt,
-                    agentId: agent.id,
-                    conversationId,
-                    attachments:
-                        message.attachments.length > 0
-                            ? message.attachments.map((attachment) => ({
-                                name: attachment.name,
-                                type: attachment.type,
-                                url: attachment.url,
-                                size: attachment.size,
-                              }))
-                            : undefined,
-                    audioUrl: message.audioUrl ?? undefined,
-                }));
+            if (chatwootMessages.length > 0) {
+                transformedMessages = chatwootMessages
+                    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+                    .map((message) => ({
+                        id: `${chatwootConversationId}-${message.id}`,
+                        content: message.content,
+                        sender: message.sender,
+                        timestamp: message.createdAt,
+                        agentId: agent.id,
+                        conversationId,
+                        attachments:
+                            message.attachments.length > 0
+                                ? message.attachments.map((attachment) => ({
+                                    name: attachment.name,
+                                    type: attachment.type,
+                                    url: attachment.url,
+                                    size: attachment.size,
+                                  }))
+                                : undefined,
+                        audioUrl: message.audioUrl ?? undefined,
+                    }));
+            }
+        }
+
+        if (transformedMessages.length === 0) {
+            const fallbackData = await getMessagesForConversation(conversationId, user.email!);
+            sessionId = sessionId ?? fallbackData.sessionId;
+            initialChatwootConversationId = initialChatwootConversationId ?? fallbackData.chatwootConversationId;
+
+            transformedMessages = fallbackData.messages.map((message, index) => ({
+                id: `${conversationId}-${index}`,
+                content: message.data.content,
+                sender: message.type === 'human' ? 'user' as const : 'agent' as const,
+                timestamp: new Date(),
+                agentId: agent.id,
+                conversationId,
+            }));
         }
     }
 
     return (
-        <ChatLayout
-            agent={localizedAgent}
-            user={user}
-            conversationId={conversationId}
-            initialMessages={transformedMessages}
-            initialSessionId={sessionId}
-            initialChatwootConversationId={agent.chatwoot_inbox_identifier ? (initialChatwootConversationId ?? null) : null}
-            initialConversations={initialConversations}
-            agentPath={params.agentPath}
-            userRole={userRole}
-            initialPrompts={prompts.map((prompt, index) => ({
-                id: prompt.id ?? `prompt-${index}`,
-                content: prompt.content,
-            }))}
-            newChatKey={newChatKey}
-        />
+        <ChatContextProvider initialConversationId={conversationId}>
+            <ChatLayout
+                agent={localizedAgent}
+                user={user}
+                initialConversationId={conversationId}
+                initialMessages={transformedMessages}
+                initialSessionId={sessionId}
+                initialChatwootConversationId={agent.chatwoot_inbox_identifier ? (initialChatwootConversationId ?? null) : null}
+                initialConversations={initialConversations}
+                agentPath={params.agentPath}
+                userRole={userRole}
+                initialPrompts={prompts.map((prompt, index) => ({
+                    id: prompt.id ?? `prompt-${index}`,
+                    content: prompt.content,
+                }))}
+            />
+        </ChatContextProvider>
     );
 }

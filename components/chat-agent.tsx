@@ -8,11 +8,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Send, ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { useLocale, useTranslations } from "next-intl"
 import MessageBubble from "./message-bubble"
 import FileUpload from "./file-upload"
 import AudioRecorder from "./audio-recorder"
-import { useToast } from "@/hooks/use-toast"
-import { supabase } from "@/lib/supabaseClient";
+import { toast } from "sonner"
 
 export interface Agent {
   id: string
@@ -47,24 +47,18 @@ interface ChatAgentProps {
 }
 
 export default function ChatAgent({ agent }: ChatAgentProps) {
+  const locale = useLocale()
+  const localePrefix = `/${locale}`
+  const t = useTranslations('chat.interface.toast')
+  const tErrors = useTranslations('chat.errors')
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string>("")
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
-  const { toast } = useToast()
-
-  useEffect(() => {
-      const getUserAvatar = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && user.user_metadata?.avatar_url) {
-          setUserAvatarUrl(user.user_metadata.avatar_url as string);
-        }
-      };
-      getUserAvatar();
-    }, []); // No dependency on supabase, as it's a constant import
+  const createdBlobUrlsRef = useRef<Set<string>>(new Set())
+  const [userAvatarUrl] = useState<string | null>(null)
   
 
   useEffect(() => {
@@ -82,6 +76,26 @@ export default function ChatAgent({ agent }: ChatAgentProps) {
 
     setSessionId(getOrCreateSessionId())
   }, [agent.id])
+
+  useEffect(() => {
+    return () => {
+      createdBlobUrlsRef.current.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url)
+        } catch {
+          // Ignore revoke failures for stale URLs.
+        }
+      })
+      createdBlobUrlsRef.current.clear()
+    }
+  }, [])
+
+  const trackBlobUrl = (url: string) => {
+    if (url.startsWith("blob:")) {
+      createdBlobUrlsRef.current.add(url)
+    }
+    return url
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -114,10 +128,10 @@ export default function ChatAgent({ agent }: ChatAgentProps) {
       attachments: filesToSend?.map((file) => ({
         name: file.name,
         type: file.type,
-        url: URL.createObjectURL(file),
+        url: trackBlobUrl(URL.createObjectURL(file)),
         size: file.size,
       })),
-      audioUrl: audioBlob ? URL.createObjectURL(audioBlob) : undefined,
+      audioUrl: audioBlob ? trackBlobUrl(URL.createObjectURL(audioBlob)) : undefined,
     }
 
     setMessages((prev) => [...prev, userMessage])
@@ -167,17 +181,10 @@ export default function ChatAgent({ agent }: ChatAgentProps) {
       }
 
       setMessages((prev) => [...prev, agentMessage])
-
-      toast({
-        title: "Mensaje enviado",
-        description: `Respuesta recibida de ${agent.name}`,
-      })
     } catch (error) {
       console.error("Error al enviar mensaje:", error)
-      toast({
-        title: "Error de conexión",
-        description: `No se pudo conectar con ${agent.name}. ${error instanceof Error ? error.message : "Error desconocido"}`,
-        variant: "destructive",
+      toast.error(tErrors('connection'), {
+        description: tErrors('connect', { agentName: agent.name, error: error instanceof Error ? error.message : tErrors('unknown') }),
       })
     } finally {
       setIsLoading(false)
@@ -222,11 +229,11 @@ export default function ChatAgent({ agent }: ChatAgentProps) {
         {/* Header del Chat */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <Link href={localePrefix}>
-              <Button variant="ghost" size="sm" className="text-white hover:bg-white/10">
+            <Button asChild variant="ghost" size="sm" className="text-white hover:bg-white/10">
+              <Link href={localePrefix}>
                 <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
             <Avatar className={`${agent.color} border-2 border-white/20`}>
               <AvatarFallback className="text-2xl bg-transparent">{agent.icon}</AvatarFallback>
             </Avatar>
@@ -249,13 +256,13 @@ export default function ChatAgent({ agent }: ChatAgentProps) {
             </div>
           ) : (
             messages.map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                agent={agent}
-                user={supabase.auth.getUser ? (supabase.auth.getUser() as any).data?.user ?? {} : {}}
-                userAvatarUrl={userAvatarUrl}
-              />
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  agent={agent}
+                  user={null}
+                  userAvatarUrl={userAvatarUrl}
+                />
             ))
           )}
           {isLoading && (
