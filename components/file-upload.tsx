@@ -5,7 +5,9 @@ import type React from "react"
 import { useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Paperclip } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
+import { useTranslations } from "next-intl"
+import { MAX_FILE_SIZE, ALLOWED_MIME_TYPES } from "@/lib/constants"
 
 interface FileUploadProps {
   onFileUpload: (files: File[]) => void
@@ -14,36 +16,44 @@ interface FileUploadProps {
 
 export default function FileUpload({ onFileUpload, disabled }: FileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { toast } = useToast()
+  const t = useTranslations('chat.interface.fileUpload')
+  const tInterface = useTranslations('chat.interface')
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
 
     if (files.length === 0) return
 
-    // Validar tamaño de archivos (máximo 10MB por archivo)
-    const maxSize = 10 * 1024 * 1024 // 10MB
-    const oversizedFiles = files.filter((file) => file.size > maxSize)
+    // Validate MIME types
+    const invalidTypeFiles = files.filter(
+      (file) => file.type && !ALLOWED_MIME_TYPES.includes(file.type as typeof ALLOWED_MIME_TYPES[number])
+    )
+
+    if (invalidTypeFiles.length > 0) {
+      toast.error(t('invalidType'), {
+        description: t('invalidTypeDesc', { files: invalidTypeFiles.map(f => f.name).join(', ') }),
+      })
+      return
+    }
+
+    // Validate file size (max 10MB per file)
+    const oversizedFiles = files.filter((file) => file.size > MAX_FILE_SIZE)
 
     if (oversizedFiles.length > 0) {
-      toast({
-        title: "Archivos demasiado grandes",
-        description: `Los archivos deben ser menores a 10MB. ${oversizedFiles.length} archivo(s) exceden este límite.`,
-        variant: "destructive",
+      toast.error(t('tooLarge'), {
+        description: t('tooLargeDesc', { size: 10, count: oversizedFiles.length }),
       })
       return
     }
 
     onFileUpload(files)
 
-    // Limpiar el input
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
 
-    toast({
-      title: "Archivos adjuntados",
-      description: `${files.length} archivo(s) listo(s) para enviar.`,
+    toast.success(t('attached'), {
+      description: t('attachedDesc', { count: files.length }),
     })
   }
 
@@ -55,7 +65,7 @@ export default function FileUpload({ onFileUpload, disabled }: FileUploadProps) 
         multiple
         onChange={handleFileSelect}
         className="hidden"
-        accept="*"
+        accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.zip,audio/*,video/*"
       />
       <Button
         type="button"
@@ -66,7 +76,7 @@ export default function FileUpload({ onFileUpload, disabled }: FileUploadProps) 
         className="w-full justify-start rounded-md px-2 py-1.5 text-sm hover:bg-gray-100"
       >
         <Paperclip className="w-4 h-4" />
-        Upload Files
+        {tInterface('attachFiles')}
       </Button>
     </>
   )

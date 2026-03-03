@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Edit, Trash2, Save, ArrowUp, ArrowDown } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
 import { useTranslations } from "next-intl";
 import type { Locale } from "@/i18n/config";
@@ -82,7 +82,6 @@ const clonePrompts = (prompts: AgentPrompts, localeList: Locale[]): AgentPrompts
   }, {} as AgentPrompts);
 
 export function AdminPanelClient({ initialAgents, locales, defaultLocale, displayLocale }: AdminPanelClientProps) {
-  const { toast } = useToast();
   const t = useTranslations('admin');
   const [agents, setAgents] = useState<AdminAgent[]>(initialAgents);
   const [editingAgent, setEditingAgent] = useState<AdminAgent | null>(null);
@@ -130,7 +129,7 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
   const handleSave = async (agent: AdminAgent) => {
     const defaultTranslation = agent.translations[defaultLocale];
     if (!defaultTranslation?.name?.trim()) {
-      toast({ title: t('toast.error'), description: t('agents.errors.nameRequired') });
+      toast.error(t('toast.error'), { description: t('agents.errors.nameRequired') });
       return;
     }
 
@@ -155,8 +154,7 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
       const createdAgent = createdAgents?.[0];
 
       if (createError || !createdAgent) {
-        toast({
-          title: t('toast.error'),
+        toast.error(t('toast.error'), {
           description: t('agents.errors.create', { message: createError?.message ?? 'unknown' }),
         });
         return;
@@ -164,8 +162,7 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
 
       const { error: translationError } = await upsertTranslations(createdAgent.id, agent.translations);
       if (translationError) {
-        toast({
-          title: t('toast.error'),
+        toast.error(t('toast.error'), {
           description: t('agents.errors.update', { message: translationError.message }),
         });
         return;
@@ -175,8 +172,7 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
       if (promptPayload.length > 0) {
         const { error: promptInsertError } = await supabase.from('agent_prompts').insert(promptPayload);
         if (promptInsertError) {
-          toast({
-            title: t('toast.error'),
+          toast.error(t('toast.error'), {
             description: t('agents.errors.update', { message: promptInsertError.message }),
           });
           return;
@@ -199,7 +195,7 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
       setAgents((prev) => [...prev, normalizedAgent]);
       setIsCreating(false);
       setEditingAgent(null);
-      toast({ title: t('toast.agentCreated'), description: t('agents.success.create', { name: defaultTranslation.name }) });
+      toast.success(t('toast.agentCreated'), { description: t('agents.success.create', { name: defaultTranslation.name }) });
     } else {
       const { data: updatedAgents, error: updateError } = await supabase
         .from('agents')
@@ -210,8 +206,7 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
       const updatedAgent = updatedAgents?.[0];
 
       if (updateError || !updatedAgent) {
-        toast({
-          title: t('toast.error'),
+        toast.error(t('toast.error'), {
           description: t('agents.errors.update', { message: updateError?.message ?? 'unknown' }),
         });
         return;
@@ -219,8 +214,7 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
 
       const { error: translationError } = await upsertTranslations(agent.id, agent.translations);
       if (translationError) {
-        toast({
-          title: t('toast.error'),
+        toast.error(t('toast.error'), {
           description: t('agents.errors.update', { message: translationError.message }),
         });
         return;
@@ -229,8 +223,7 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
       const promptPayload = preparePromptPayload(agent.id, agent.prompts);
       const { error: promptDeleteError } = await supabase.from('agent_prompts').delete().eq('agent_id', agent.id);
       if (promptDeleteError) {
-        toast({
-          title: t('toast.error'),
+        toast.error(t('toast.error'), {
           description: t('agents.errors.update', { message: promptDeleteError.message }),
         });
         return;
@@ -239,8 +232,7 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
       if (promptPayload.length > 0) {
         const { error: promptInsertError } = await supabase.from('agent_prompts').insert(promptPayload);
         if (promptInsertError) {
-          toast({
-            title: t('toast.error'),
+          toast.error(t('toast.error'), {
             description: t('agents.errors.update', { message: promptInsertError.message }),
           });
           return;
@@ -262,17 +254,17 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
 
       setAgents((prev) => prev.map((item) => (item.id === agent.id ? normalizedAgent : item)));
       setEditingAgent(null);
-      toast({ title: t('toast.agentUpdated'), description: t('agents.success.update', { name: defaultTranslation.name }) });
+      toast.success(t('toast.agentUpdated'), { description: t('agents.success.update', { name: defaultTranslation.name }) });
     }
   };
 
   const handleDelete = async (agentId: string) => {
     const { error } = await supabase.from('agents').delete().eq('id', agentId);
     if (error) {
-      toast({ title: t('toast.error'), description: t('agents.errors.delete') });
+      toast.error(t('toast.error'), { description: t('agents.errors.delete') });
     } else {
       setAgents((prev) => prev.filter((agent) => agent.id !== agentId));
-      toast({ title: t('toast.agentDeleted'), description: t('agents.success.delete') });
+      toast.success(t('toast.agentDeleted'), { description: t('agents.success.delete') });
     }
   };
 

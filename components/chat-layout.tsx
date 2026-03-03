@@ -8,41 +8,36 @@ import ChatInterface, { Agent, AgentPromptSuggestion } from '@/components/chat-i
 import { User } from '@supabase/supabase-js';
 import { Conversation } from '@/lib/actions/chat';
 import { GlobalHeader } from './global-header';
-
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-  }
-}
+import { useChatContext } from '@/lib/chat-context';
+import type { FetchMessagesResult } from '@/lib/actions/fetchMessages';
 
 interface ChatLayoutProps {
   agent: Agent;
   user: User | null;
-  conversationId?: string;
+  initialConversationId?: string;
   initialMessages: any[];
   initialSessionId: string | null;
   initialChatwootConversationId?: string | null;
-  initialConversations: Conversation[];
+  initialConversations?: Conversation[];
   agentPath: string;
   userRole: string | null;
   initialPrompts?: AgentPromptSuggestion[];
-  newChatKey?: string;
 }
 
-export default function ChatLayout({ 
-  agent, 
-  user, 
-  conversationId, 
-  initialMessages, 
-  initialSessionId, 
+export default function ChatLayout({
+  agent,
+  user,
+  initialConversationId,
+  initialMessages,
+  initialSessionId,
   initialChatwootConversationId,
-  initialConversations, 
-  agentPath, 
+  initialConversations,
+  agentPath,
   userRole,
   initialPrompts = [],
-  newChatKey,
 }: ChatLayoutProps) {
-  const chatInstanceKey = conversationId ?? newChatKey ?? 'new-chat';
+  const { conversationId } = useChatContext();
+
   useEffect(() => {
     if (typeof window === 'undefined' || !window.gtag) {
       return;
@@ -57,23 +52,33 @@ export default function ChatLayout({
     });
   }, [agent.id, agent.path, agent.access_level, userRole, user?.id, conversationId]);
 
+  // Build initialData for the messages query seed
+  const initialMessageData: FetchMessagesResult | undefined =
+    initialConversationId && initialMessages.length > 0
+      ? {
+          messages: initialMessages,
+          sessionId: initialSessionId,
+          chatwootConversationId: initialChatwootConversationId ?? null,
+        }
+      : undefined;
+
   const isUserLoggedIn = !!user;
 
   if (!isUserLoggedIn) {
     return (
       <div className="flex flex-col h-screen">
-        <GlobalHeader 
-          user={user} 
+        <GlobalHeader
+          user={user}
           userRole={userRole}
           agent={agent}
         />
         <main className="flex flex-1 overflow-hidden">
           <ChatInterface
-            key={chatInstanceKey}
             agent={agent}
             user={user}
-            conversationId={conversationId}
-            initialMessages={initialMessages}
+            agentPath={agentPath}
+            initialConversationId={initialConversationId}
+            initialMessageData={initialMessageData}
             initialSessionId={initialSessionId}
             initialChatwootConversationId={initialChatwootConversationId}
             initialPrompts={initialPrompts}
@@ -85,12 +90,12 @@ export default function ChatLayout({
 
   return (
     <div className="flex flex-col h-screen">
-      <GlobalHeader 
-        user={user} 
-        userRole={userRole} 
-        initialConversations={initialConversations} 
-        agentPath={agentPath} 
-        activeConversationId={conversationId} 
+      <GlobalHeader
+        user={user}
+        userRole={userRole}
+        initialConversations={initialConversations}
+        agentPath={agentPath}
+        activeConversationId={conversationId}
         agentId={agent.id}
         agent={agent}
       />
@@ -104,17 +109,18 @@ export default function ChatLayout({
                 agentPath={agentPath}
                 activeConversationId={conversationId}
                 agentId={agent.id}
+                chatwootInboxIdentifier={agent.chatwoot_inbox_identifier}
               />
             </Sidebar>
           </div>
           {/* Main Content */}
           <SidebarInset>
             <ChatInterface
-              key={chatInstanceKey}
               agent={agent}
               user={user}
-              conversationId={conversationId}
-              initialMessages={initialMessages}
+              agentPath={agentPath}
+              initialConversationId={initialConversationId}
+              initialMessageData={initialMessageData}
               initialSessionId={initialSessionId}
               initialChatwootConversationId={initialChatwootConversationId}
               initialPrompts={initialPrompts}

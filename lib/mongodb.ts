@@ -10,20 +10,48 @@ if (!uri) {
 
 let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
+let cachedClientPromise: Promise<MongoClient> | null = null;
+
+async function createAndConnectClient() {
+  const client = new MongoClient(uri!, {
+    maxPoolSize: 10,
+    minPoolSize: 1,
+  });
+
+  await client.connect();
+  return client;
+}
 
 export async function connectToDatabase() {
   if (cachedClient && cachedDb) {
     return { client: cachedClient, db: cachedDb };
   }
 
-  const client = new MongoClient(uri!, {
-    maxPoolSize: 10, // Limit the number of connections in the pool
-  });
-  await client.connect();
-  const db = client.db(dbName);
+  try {
+    if (!cachedClientPromise) {
+      cachedClientPromise = createAndConnectClient();
+    }
 
-  cachedClient = client;
-  cachedDb = db;
+    const client = await cachedClientPromise;
+    const db = client.db(dbName);
 
-  return { client, db };
+    cachedClient = client;
+    cachedDb = db;
+
+    return { client, db };
+  } catch {
+    cachedClientPromise = null;
+    cachedClient = null;
+    cachedDb = null;
+
+    // Retry once for transient TLS/network handshakes.
+    const retryClient = await createAndConnectClient();
+    const retryDb = retryClient.db(dbName);
+
+    cachedClientPromise = Promise.resolve(retryClient);
+    cachedClient = retryClient;
+    cachedDb = retryDb;
+
+    return { client: retryClient, db: retryDb };
+  }
 }

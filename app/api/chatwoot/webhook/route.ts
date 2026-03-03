@@ -1,7 +1,9 @@
 import crypto from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 
-const CHATWOOT_WEBHOOK_TOKEN = process.env.CHATWOOT_WEBHOOK_TOKEN
+function getWebhookToken() {
+  return process.env.CHATWOOT_WEBHOOK_TOKEN
+}
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -18,12 +20,13 @@ function timingSafeEqual(expected: string, received: string) {
 }
 
 function computeSignature(payload: string) {
-  if (!CHATWOOT_WEBHOOK_TOKEN) {
+  const token = getWebhookToken()
+  if (!token) {
     return null
   }
 
   return crypto
-    .createHmac("sha256", CHATWOOT_WEBHOOK_TOKEN)
+    .createHmac("sha256", token)
     .update(payload)
     .digest("hex")
 }
@@ -32,8 +35,9 @@ export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text()
     const signature = request.headers.get("x-chatwoot-signature") ?? ""
+    const webhookToken = getWebhookToken()
 
-    if (CHATWOOT_WEBHOOK_TOKEN) {
+    if (webhookToken) {
       if (!signature) {
         console.warn("[chatwoot] Webhook sin firma")
         return NextResponse.json({ error: "Firma inválida" }, { status: 401 })

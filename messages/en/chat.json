@@ -27,6 +27,13 @@
     "newChat": "New chat",
     "searchPlaceholder": "Search conversations...",
     "title": "History",
+    "untitledConversation": "Untitled conversation",
+    "groups": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "thisWeek": "This week",
+      "older": "Older"
+    },
     "loadMore": "Load More",
     "editTitle": "Edit Title",
     "delete": "Delete",
@@ -38,6 +45,7 @@
     },
     "editDialog": {
       "title": "Edit conversation title",
+      "description": "Use a short, clear name so you can find it quickly later.",
       "placeholder": "Enter new title",
       "cancel": "Cancel",
       "save": "Save"
@@ -45,6 +53,10 @@
     "success": {
         "delete": "Conversation deleted.",
         "update": "Title updated."
+    },
+    "error": {
+        "delete": "Could not delete the conversation.",
+        "update": "Could not update the title."
     },
     "toast": {
         "success": "Success",
@@ -55,9 +67,31 @@
     "audioMessage": "[Audio message]",
     "attachments": "[Attachments]",
     "thinking": "Thinking...",
+    "fileUpload": {
+      "invalidType": "File type not allowed",
+      "invalidTypeDesc": "The following files are not allowed: {files}",
+      "tooLarge": "Files are too large",
+      "tooLargeDesc": "Files must be smaller than {size}MB. {count} file(s) exceed this limit.",
+      "attached": "Files attached",
+      "attachedDesc": "{count} file(s) ready to send."
+    },
+    "audioRecorder": {
+      "recorded": "Audio recorded",
+      "recordedDesc": "Recording of {seconds}s sent.",
+      "micError": "Microphone error",
+      "micErrorDesc": "Could not access the microphone. Check your permissions."
+    },
     "videoAnalysis": "(Video Analysis)",
+    "videoAnalysisBtn": "Video Analysis",
     "messagePlaceholder": "Write a message here...",
+    "attachFiles": "Attach files",
+    "sendMessage": "Send message",
+    "showMoreLinks": "Show {count} more links",
+    "showLessLinks": "Show fewer links",
     "greeting": "Hi! I'm the {agentName}",
+    "loadingConversation": "Loading conversation...",
+    "conversationLoadError": "We couldn't load this conversation.",
+    "retryConversationLoad": "Retry",
     "forwardedMessage": "Your message was forwarded to our team. They'll follow up shortly.",
     "emailGate": {
         "title": "We need your email before starting",
@@ -84,6 +118,8 @@
   },
   "feedback": {
     "thanks": "Thank you for your feedback!",
+    "missingConversationTitle": "Error",
+    "missingConversationDesc": "Conversation ID is missing. Cannot submit feedback.",
     "dialog": {
       "title": "Provide additional feedback",
       "description": "Your feedback is valuable in helping us improve the agent.",
@@ -91,5 +127,15 @@
       "cancel": "Cancel",
       "submit": "Submit Feedback"
     }
+  },
+  "codeBlock": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "plain": "text",
+    "expand": "View full block",
+    "collapse": "Collapse"
+  },
+  "linkPreview": {
+    "open": "Open"
   }
 }

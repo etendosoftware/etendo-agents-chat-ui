@@ -27,6 +27,13 @@
     "newChat": "Nuevo chat",
     "searchPlaceholder": "Buscar conversaciones...",
     "title": "Historial",
+    "untitledConversation": "Conversación sin título",
+    "groups": {
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "thisWeek": "Esta semana",
+      "older": "Anteriores"
+    },
     "loadMore": "Cargar más",
     "editTitle": "Editar título",
     "delete": "Eliminar",
@@ -38,6 +45,7 @@
     },
     "editDialog": {
       "title": "Editar título de la conversación",
+      "description": "Elegí un nombre breve y claro para encontrarla más rápido.",
       "placeholder": "Introduce el nuevo título",
       "cancel": "Cancelar",
       "save": "Guardar"
@@ -45,6 +53,10 @@
     "success": {
         "delete": "Conversación eliminada.",
         "update": "Título actualizado."
+    },
+    "error": {
+        "delete": "No se pudo eliminar la conversación.",
+        "update": "No se pudo actualizar el título."
     },
     "toast": {
         "success": "Éxito",
@@ -55,9 +67,31 @@
     "audioMessage": "[Mensaje de audio]",
     "attachments": "[Archivos adjuntos]",
     "thinking": "Pensando...",
+    "fileUpload": {
+      "invalidType": "Tipo de archivo no permitido",
+      "invalidTypeDesc": "Los siguientes archivos no son permitidos: {files}",
+      "tooLarge": "Archivos demasiado grandes",
+      "tooLargeDesc": "Los archivos deben ser menores a {size}MB. {count} archivo(s) exceden este límite.",
+      "attached": "Archivos adjuntados",
+      "attachedDesc": "{count} archivo(s) listo(s) para enviar."
+    },
+    "audioRecorder": {
+      "recorded": "Audio grabado",
+      "recordedDesc": "Grabación de {seconds}s enviada.",
+      "micError": "Error de micrófono",
+      "micErrorDesc": "No se pudo acceder al micrófono. Verifica los permisos."
+    },
     "videoAnalysis": "(Análisis de video)",
+    "videoAnalysisBtn": "Análisis de video",
     "messagePlaceholder": "Escribe un mensaje aquí...",
+    "attachFiles": "Adjuntar archivos",
+    "sendMessage": "Enviar mensaje",
+    "showMoreLinks": "Ver {count} enlaces más",
+    "showLessLinks": "Ver menos enlaces",
     "greeting": "¡Hola! Soy el {agentName}",
+    "loadingConversation": "Cargando conversación...",
+    "conversationLoadError": "No pudimos cargar esta conversación.",
+    "retryConversationLoad": "Reintentar",
     "forwardedMessage": "Tu mensaje fue enviado a nuestro equipo. Te responderán a la brevedad.",
     "emailGate": {
         "title": "Necesitamos tu email antes de comenzar",
@@ -84,6 +118,8 @@
   },
   "feedback": {
     "thanks": "¡Gracias por tus comentarios!",
+    "missingConversationTitle": "Error",
+    "missingConversationDesc": "Falta el ID de conversación. No se puede enviar el feedback.",
     "dialog": {
       "title": "Proporciona comentarios adicionales",
       "description": "Tus comentarios nos ayudan a mejorar el agente.",
@@ -91,5 +127,15 @@
       "cancel": "Cancelar",
       "submit": "Enviar comentarios"
     }
+  },
+  "codeBlock": {
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "plain": "texto",
+    "expand": "Ver completo",
+    "collapse": "Ver menos"
+  },
+  "linkPreview": {
+    "open": "Abrir"
   }
 }

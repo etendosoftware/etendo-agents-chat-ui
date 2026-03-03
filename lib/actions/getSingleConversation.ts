@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { connectToDatabase } from '../mongodb';
 import { ObjectId } from 'mongodb';
 import { Conversation } from './chat';
+import { MONGODB_COLLECTION, DEFAULT_CHAT_TITLE } from '@/lib/constants';
 
 export async function getSingleConversation(conversationId: string): Promise<Conversation | null> {
   const supabase = createClient();
@@ -14,8 +15,13 @@ export async function getSingleConversation(conversationId: string): Promise<Con
   }
 
   try {
+    if (!ObjectId.isValid(conversationId)) {
+      console.warn(`Invalid ObjectId: ${conversationId}`);
+      return null;
+    }
+
     const { db } = await connectToDatabase();
-    const conversation = await db.collection('conversations').findOne({
+    const conversation = await db.collection(MONGODB_COLLECTION).findOne({
       _id: new ObjectId(conversationId),
       email: user.email,
     });
@@ -29,7 +35,7 @@ export async function getSingleConversation(conversationId: string): Promise<Con
     const title = conversation.conversationTitle || 
                   (firstHumanMessage?.data?.content
                     ? firstHumanMessage.data.content.substring(0, 50) + (firstHumanMessage.data.content.length > 50 ? '...' : '')
-                    : 'New Chat');
+                    : DEFAULT_CHAT_TITLE);
 
     return {
       _id: conversation._id.toHexString(),

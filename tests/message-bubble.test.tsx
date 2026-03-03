@@ -4,11 +4,11 @@ import { screen, fireEvent, waitFor } from '@testing-library/react'
 import MessageBubble from '../components/message-bubble'
 import { renderWithIntl, createTranslator } from './utils/intl'
 
-const submitFeedbackMock = vi.hoisted(() => vi.fn())
+const submitFeedbackMutationMock = vi.hoisted(() => vi.fn())
 const LinkPreviewMock = vi.hoisted(() => vi.fn())
 
-vi.mock('@/lib/actions/feedback', () => ({
-  submitFeedback: submitFeedbackMock,
+vi.mock('@/hooks/use-feedback', () => ({
+  useFeedback: () => ({ mutate: submitFeedbackMutationMock }),
 }))
 
 vi.mock('../components/link-preview', () => ({
@@ -62,7 +62,6 @@ describe('MessageBubble', () => {
   })
 
   it('submits positive feedback immediately when thumbs up clicked', async () => {
-    submitFeedbackMock.mockResolvedValue({ success: true })
     const message = {
       id: 'msg-1',
       conversationId: 'conv-1',
@@ -84,19 +83,19 @@ describe('MessageBubble', () => {
     const thumbsUp = screen.getAllByRole('button').find(btn => btn.querySelector('svg')) as HTMLButtonElement
     fireEvent.click(thumbsUp)
 
-    await waitFor(() =>
-      expect(submitFeedbackMock).toHaveBeenCalledWith({
-        rating: 'good',
-        feedbackText: undefined,
-        messageId: 'msg-1',
-        conversationId: 'conv-1',
-        agentId: 'agent-1',
-      }),
-    )
+    await waitFor(() => expect(submitFeedbackMutationMock).toHaveBeenCalled())
+
+    const [payload] = submitFeedbackMutationMock.mock.calls[0]
+    expect(payload).toEqual({
+      rating: 'good',
+      feedbackText: undefined,
+      messageId: 'msg-1',
+      conversationId: 'conv-1',
+      agentId: 'agent-1',
+    })
   })
 
   it('opens dialog for negative feedback and sends comment', async () => {
-    submitFeedbackMock.mockResolvedValue({ success: true })
     const message = {
       id: 'msg-1',
       conversationId: 'conv-1',
@@ -126,14 +125,15 @@ describe('MessageBubble', () => {
     const submitButton = screen.getByRole('button', { name: tFeedback('dialog.submit') })
     fireEvent.click(submitButton)
 
-    await waitFor(() =>
-      expect(submitFeedbackMock).toHaveBeenCalledWith({
-        rating: 'bad',
-        feedbackText: 'Too generic',
-        messageId: 'msg-1',
-        conversationId: 'conv-1',
-        agentId: 'agent-1',
-      }),
-    )
+    await waitFor(() => expect(submitFeedbackMutationMock).toHaveBeenCalled())
+
+    const [payload] = submitFeedbackMutationMock.mock.calls[0]
+    expect(payload).toEqual({
+      rating: 'bad',
+      feedbackText: 'Too generic',
+      messageId: 'msg-1',
+      conversationId: 'conv-1',
+      agentId: 'agent-1',
+    })
   })
 })

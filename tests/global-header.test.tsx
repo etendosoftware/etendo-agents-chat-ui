@@ -1,7 +1,6 @@
-import { act } from 'react-dom/test-utils'
-import { screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { screen, fireEvent } from '@testing-library/react'
 import React from 'react'
+import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 import { GlobalHeader } from '@/components/global-header'
 import { renderWithIntl } from './utils/intl'
@@ -168,31 +167,21 @@ describe('GlobalHeader i18n', () => {
   })
 
   it('navigates to the selected locale preserving search params', async () => {
-    const user = userEvent.setup()
     renderWithIntl(<GlobalHeader {...baseProps} />)
 
     const [trigger] = screen.getAllByRole('combobox', { name: /language/i })
-    await act(async () => {
-      await user.click(trigger)
-    })
-    await act(async () => {
-      await user.click(screen.getByRole('option', { name: /spanish/i }))
-    })
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('option', { name: /spanish/i }))
 
     expect(pushMock).toHaveBeenCalledWith('/es/dashboard?foo=bar')
   })
 
   it('does not navigate when selecting the current locale', async () => {
-    const user = userEvent.setup()
     renderWithIntl(<GlobalHeader {...baseProps} />)
 
     const [trigger] = screen.getAllByRole('combobox', { name: /language/i })
-    await act(async () => {
-      await user.click(trigger)
-    })
-    await act(async () => {
-      await user.click(screen.getByRole('option', { name: /english/i }))
-    })
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('option', { name: /english/i }))
 
     expect(pushMock).not.toHaveBeenCalled()
   })

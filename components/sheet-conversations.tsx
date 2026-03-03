@@ -10,13 +10,14 @@ import { ConversationHistoryContent } from "./conversation-history-content-logic
 import { SidebarProvider } from './ui/sidebar';
 
 interface SheetConversationsProps {
-  initialConversations: Conversation[];
+  initialConversations?: Conversation[];
   agentPath: string;
   activeConversationId?: string;
   agentId: string;
+  chatwootInboxIdentifier?: string | null;
 }
 
-export function SheetConversations({ initialConversations, agentPath, activeConversationId, agentId }: SheetConversationsProps) {
+export function SheetConversations({ initialConversations, agentPath, activeConversationId, agentId, chatwootInboxIdentifier }: SheetConversationsProps) {
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -31,6 +32,7 @@ export function SheetConversations({ initialConversations, agentPath, activeConv
             agentPath={agentPath}
             activeConversationId={activeConversationId}
             agentId={agentId}
+            chatwootInboxIdentifier={chatwootInboxIdentifier}
           />
         </SidebarProvider>
       </SheetContent>

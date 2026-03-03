@@ -30,7 +30,6 @@ export async function updateConversationTitle(
       {
         $set: {
           conversationTitle: newTitle.trim(),
-          updatedAt: new Date(), // Also update the updatedAt timestamp
         },
       }
     );

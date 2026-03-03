@@ -3,8 +3,8 @@
 
 import { connectToDatabase } from '../mongodb';
 import { ObjectId } from 'mongodb';
-
-const escapeRegExp = (value: string) => value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+import { escapeRegExp } from '@/lib/utils/escape-regexp';
+import { MONGODB_COLLECTION, DEFAULT_CHAT_TITLE } from '@/lib/constants';
 
 export interface Conversation {
   _id: string;
@@ -22,6 +22,56 @@ export interface Message {
     // Add other potential message properties if they exist
   };
   // Add other potential message properties if they exist
+}
+
+export async function getConversationMetadata(
+  conversationId: string,
+  userEmail: string,
+): Promise<{ sessionId: string | null; chatwootConversationId: string | null }> {
+  try {
+    const { db } = await connectToDatabase();
+    const trimmedEmail = userEmail?.trim() ?? '';
+
+    if (!ObjectId.isValid(conversationId)) {
+      console.warn(`Invalid ObjectId: ${conversationId}`);
+      return { sessionId: null, chatwootConversationId: null };
+    }
+
+    const conversation = await db
+      .collection(MONGODB_COLLECTION)
+      .findOne(
+        {
+          _id: new ObjectId(conversationId),
+          ...(trimmedEmail
+            ? {
+                email: {
+                  $regex: `^${escapeRegExp(trimmedEmail)}$`,
+                  $options: 'i',
+                },
+              }
+            : {}),
+        },
+        {
+          projection: {
+            sessionId: 1,
+            chatwootConversationId: 1,
+          },
+        },
+      );
+
+    if (!conversation) {
+      console.warn(`Conversation with ID ${conversationId} not found for user ${userEmail}`);
+      return { sessionId: null, chatwootConversationId: null };
+    }
+
+    return {
+      sessionId: conversation.sessionId || null,
+      chatwootConversationId: conversation.chatwootConversationId ?? null,
+    };
+  } catch (error) {
+    console.error(`Failed to fetch metadata for conversation ${conversationId}:`, error);
+    return { sessionId: null, chatwootConversationId: null };
+  }
 }
 
 export async function getConversationHistory(
@@ -51,12 +101,23 @@ export async function getConversationHistory(
     }
 
     if (searchTerm) {
-      query.conversationTitle = { $regex: searchTerm, $options: 'i' };
+      query.conversationTitle = { $regex: escapeRegExp(searchTerm), $options: 'i' };
     }
 
     const conversations = await db
-      .collection('conversations')
-      .find(query)
+      .collection(MONGODB_COLLECTION)
+      .find(query, {
+        projection: {
+          _id: 1,
+          sessionId: 1,
+          email: 1,
+          conversationTitle: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          agentId: 1,
+          messages: { $slice: 3 },
+        },
+      })
       .sort({ updatedAt: -1, _id: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -65,10 +126,10 @@ export async function getConversationHistory(
     // Manually convert each document to the Conversation type
     return conversations.map(doc => {
       const firstHumanMessage = doc.messages?.find((msg: any) => msg.type === 'human');
-      const title = doc.conversationTitle || 
+      const title = doc.conversationTitle ||
                     (firstHumanMessage?.data?.content
                       ? firstHumanMessage.data.content.substring(0, 50) + (firstHumanMessage.data.content.length > 50 ? '...' : '')
-                      : 'New Chat');
+                      : DEFAULT_CHAT_TITLE);
 
       return {
         _id: doc._id.toHexString(),
@@ -94,19 +155,29 @@ export async function getMessagesForConversation(
     const { db } = await connectToDatabase();
     const trimmedEmail = userEmail?.trim() ?? '';
 
+    if (!ObjectId.isValid(conversationId)) {
+      console.warn(`Invalid ObjectId: ${conversationId}`);
+      return { messages: [], sessionId: null, chatwootConversationId: null };
+    }
+
     const conversation = await db
-      .collection('conversations')
-      .findOne({
-        _id: new ObjectId(conversationId),
-        ...(trimmedEmail
-          ? {
-              email: {
-                $regex: `^${escapeRegExp(trimmedEmail)}$`,
-                $options: 'i',
-              },
-            }
-          : {}),
-      });
+      .collection(MONGODB_COLLECTION)
+      .findOne(
+        {
+          _id: new ObjectId(conversationId),
+          ...(trimmedEmail
+            ? {
+                email: {
+                  $regex: `^${escapeRegExp(trimmedEmail)}$`,
+                  $options: 'i',
+                },
+              }
+            : {}),
+        },
+        {
+          projection: { messages: 1, sessionId: 1, chatwootConversationId: 1 },
+        },
+      );
 
     if (!conversation) {
       console.warn(`Conversation with ID ${conversationId} not found for user ${userEmail}`);

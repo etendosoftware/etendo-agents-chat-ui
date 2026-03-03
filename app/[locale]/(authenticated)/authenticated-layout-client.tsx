@@ -16,7 +16,7 @@ export default function AuthenticatedLayoutClient({ user, userRole, children }: 
     const isChatPage = pathname.includes('/chat/');
 
     return (
-        <div className='w-full h-screen flex flex-col bg-gradient-custom'>
+        <div className='w-full h-screen flex flex-col bg-background'>
             {!isChatPage && <GlobalHeader user={user} userRole={userRole} disableHamburgerMenu />}
             <main className='flex-1 overflow-y-auto md:overflow-y-hidden'>
                 {children}

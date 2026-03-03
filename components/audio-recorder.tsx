@@ -3,7 +3,8 @@
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Mic, Square } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
+import { useTranslations } from "next-intl"
 
 interface AudioRecorderProps {
   onAudioSend: (audioBlob: Blob) => void
@@ -16,7 +17,7 @@ export default function AudioRecorder({ onAudioSend, disabled }: AudioRecorderPr
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const timerRef = useRef<NodeJS.Timeout | null>(null)
-  const { toast } = useToast()
+  const t = useTranslations('chat.interface.audioRecorder')
 
   const startRecording = async () => {
     try {
@@ -39,9 +40,8 @@ export default function AudioRecorder({ onAudioSend, disabled }: AudioRecorderPr
         // Detener todas las pistas de audio
         stream.getTracks().forEach((track) => track.stop())
 
-        toast({
-          title: "Audio grabado",
-          description: `Grabación de ${recordingTime}s enviada.`,
+        toast.success(t('recorded'), {
+          description: t('recordedDesc', { seconds: recordingTime }),
         })
       }
 
@@ -62,10 +62,8 @@ export default function AudioRecorder({ onAudioSend, disabled }: AudioRecorderPr
       }, 1000)
     } catch (error) {
       console.error("Error accessing microphone:", error)
-      toast({
-        title: "Error de micrófono",
-        description: "No se pudo acceder al micrófono. Verifica los permisos.",
-        variant: "destructive",
+      toast.error(t('micError'), {
+        description: t('micErrorDesc'),
       })
     }
   }
@@ -104,6 +102,7 @@ export default function AudioRecorder({ onAudioSend, disabled }: AudioRecorderPr
         size="sm"
         onClick={isRecording ? stopRecording : startRecording}
         disabled={disabled}
+        aria-label={isRecording ? "Stop recording" : "Start recording"}
         className={isRecording ? "" : "glass-effect border-border hover:bg-white/5"}
       >
         {isRecording ? <Square className="" /> : <Mic />}

@@ -1,20 +1,24 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Download, FileText, ImageIcon, Play, Pause, ThumbsUp, ThumbsDown } from "lucide-react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import type { Message, Agent } from "./chat-interface"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import rehypeSanitize from "rehype-sanitize"
+import type { Components } from "react-markdown"
 import { User } from "@supabase/supabase-js"
-import { submitFeedback } from "@/lib/actions/feedback"
+import { toast } from "sonner"
+import { useFeedback } from "@/hooks/use-feedback"
 import LinkPreview from "./link-preview"
+import CodeBlock from "./code-block"
 
 const YOUTUBE_URL_REGEX = /https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/[\w?=&\-#\/]+|youtu\.be\/[\w\-]+)/gi
 const URL_REGEX = /https?:\/\/[^\s<>()\"]+/gi
@@ -78,12 +82,15 @@ interface MessageBubbleProps {
   userAvatarUrl: string | null
 }
 
-export default function MessageBubble({ message, agent, user, userAvatarUrl }: MessageBubbleProps) {
+function MessageBubbleComponent({ message, agent, user, userAvatarUrl }: MessageBubbleProps) {
   const t = useTranslations("chat.feedback")
+  const tInterface = useTranslations("chat.interface")
+  const { mutate: submitFeedbackMutation } = useFeedback()
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false)
   const [feedbackText, setFeedbackText] = useState("")
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [showAllLinkPreviews, setShowAllLinkPreviews] = useState(false)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -163,7 +170,9 @@ export default function MessageBubble({ message, agent, user, userAvatarUrl }: M
 
   const handleFeedbackSubmit = async (rating: 'good' | 'bad', text?: string) => {
     if (!message.conversationId) {
-        console.error("Conversation ID is missing");
+        toast.error(t('missingConversationTitle'), {
+          description: t('missingConversationDesc'),
+        });
         return;
     }
     
@@ -172,7 +181,7 @@ export default function MessageBubble({ message, agent, user, userAvatarUrl }: M
       setIsFeedbackDialogOpen(false);
     }
 
-    await submitFeedback({
+    submitFeedbackMutation({
       rating: rating,
       feedbackText: text,
       messageId: message.id,
@@ -188,9 +197,53 @@ export default function MessageBubble({ message, agent, user, userAvatarUrl }: M
 
   const isUser = message.sender === "user"
 
-  const cleanedContent = message.content ? message.content.replace(/(\n\nUser email:.*|\n\nFilesAttached:.*)/gs, "").trim() : "";
-  const youtubeVideoIds = cleanedContent ? getYouTubeVideoIds(cleanedContent) : []
-  const otherUrls = cleanedContent ? getOtherUrls(cleanedContent) : []
+  const cleanedContent = useMemo(
+    () => message.content ? message.content.replace(/(\n\nUser email:.*|\n\nFilesAttached:.*)/gs, "").trim() : "",
+    [message.content]
+  );
+  const youtubeVideoIds = useMemo(
+    () => cleanedContent ? getYouTubeVideoIds(cleanedContent) : [],
+    [cleanedContent]
+  );
+  const otherUrls = useMemo(
+    () => cleanedContent ? getOtherUrls(cleanedContent) : [],
+    [cleanedContent]
+  );
+  const visibleLinkPreviews = showAllLinkPreviews ? otherUrls : otherUrls.slice(0, 2)
+
+  const markdownComponents = useMemo<Components>(() => ({
+    a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+    pre: ({ children }) => {
+      const child = Array.isArray(children) ? children[0] : children
+
+      if (!React.isValidElement(child)) {
+        return <pre>{children}</pre>
+      }
+
+      const childProps = child.props as { className?: string; children?: React.ReactNode }
+      const code = String(childProps?.children ?? "").replace(/\n$/, "")
+      const languageMatch = /language-([\w-]+)/.exec(childProps?.className || "")
+      const language = languageMatch?.[1]
+
+      return (
+        <CodeBlock
+          code={code}
+          language={language}
+          className={childProps?.className}
+        />
+      )
+    },
+    code: ({ className, children, ...props }) => {
+      return (
+        <code
+          {...props}
+          className={`rounded-md border border-border/70 bg-muted/50 px-1.5 py-0.5 font-mono text-[0.85em] ${className ?? ""}`.trim()}
+        >
+          {children}
+        </code>
+      )
+    },
+  }), [])
 
   return (
     <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
@@ -200,19 +253,24 @@ export default function MessageBubble({ message, agent, user, userAvatarUrl }: M
         </Avatar>
       )}
 
-      <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isUser ? "items-end" : "items-start"}`}>
+      <div
+        className={`flex flex-col gap-1 ${
+          isUser
+            ? "max-w-[86%] md:max-w-[74%] lg:max-w-[66%] items-end"
+            : "max-w-[94%] md:max-w-[88%] lg:max-w-[82%] items-start"
+        }`}
+      >
         <div
-          className={`glass-effect rounded-2xl p-3 ${
-            isUser ? "bg-primary/20 border-primary/30" : "bg-white border-white/10"
+          className={`rounded-2xl border p-3 shadow-sm ${
+            isUser ? "border-primary/40 bg-primary/10" : "border-slate-200/80 bg-white"
           }`}
         >
           {cleanedContent && (
-            <div className="prose prose-invert max-w-none text-sm leading-relaxed overflow-x-auto">
-              <ReactMarkdown 
+            <div className="max-w-none text-sm leading-relaxed break-words [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_a]:text-primary [&_a]:underline [&_code]:font-mono">
+              <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
-                components={{
-                  a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />
-                }}
+                rehypePlugins={[rehypeSanitize]}
+                components={markdownComponents}
               >
                 {cleanedContent}
               </ReactMarkdown>
@@ -239,9 +297,21 @@ export default function MessageBubble({ message, agent, user, userAvatarUrl }: M
 
           {otherUrls.length > 0 && (
             <div className="mt-3 space-y-3">
-              {otherUrls.map((url) => (
+              {visibleLinkPreviews.map((url) => (
                 <LinkPreview key={url} url={url} />
               ))}
+              {otherUrls.length > 2 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-muted-foreground"
+                  onClick={() => setShowAllLinkPreviews((prev) => !prev)}
+                >
+                  {showAllLinkPreviews
+                    ? tInterface('showLessLinks')
+                    : tInterface('showMoreLinks', { count: otherUrls.length - 2 })}
+                </Button>
+              )}
             </div>
           )}
 
@@ -306,8 +376,8 @@ export default function MessageBubble({ message, agent, user, userAvatarUrl }: M
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{formatTime(message.timestamp)}</span>
+        <div className="flex items-center gap-2 px-1">
+          <span className="text-[11px] text-muted-foreground/90">{formatTime(message.timestamp)}</span>
         </div>
         {!isUser && user && (
           <div className="flex items-center gap-1 text-muted-foreground h-7">
@@ -374,3 +444,82 @@ export default function MessageBubble({ message, agent, user, userAvatarUrl }: M
     </div>
   )
 }
+
+function areAttachmentsEqual(
+  previous: Message["attachments"],
+  next: Message["attachments"],
+) {
+  if (previous === next) {
+    return true
+  }
+
+  if (!previous || !next) {
+    return !previous && !next
+  }
+
+  if (previous.length !== next.length) {
+    return false
+  }
+
+  for (let index = 0; index < previous.length; index += 1) {
+    const previousItem = previous[index]
+    const nextItem = next[index]
+
+    if (
+      previousItem.name !== nextItem.name ||
+      previousItem.type !== nextItem.type ||
+      previousItem.url !== nextItem.url ||
+      previousItem.size !== nextItem.size
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function getTimestampValue(value: Date) {
+  const timestamp = new Date(value).getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
+function areMessageBubblePropsEqual(previous: MessageBubbleProps, next: MessageBubbleProps) {
+  if (previous.userAvatarUrl !== next.userAvatarUrl) {
+    return false
+  }
+
+  if (previous.agent.id !== next.agent.id || previous.agent.color !== next.agent.color || previous.agent.icon !== next.agent.icon) {
+    return false
+  }
+
+  if (previous.user?.id !== next.user?.id || previous.user?.email !== next.user?.email) {
+    return false
+  }
+
+  const previousMessage = previous.message
+  const nextMessage = next.message
+
+  if (previousMessage === nextMessage) {
+    return true
+  }
+
+  if (
+    previousMessage.id !== nextMessage.id ||
+    previousMessage.sender !== nextMessage.sender ||
+    previousMessage.content !== nextMessage.content ||
+    previousMessage.agentId !== nextMessage.agentId ||
+    previousMessage.conversationId !== nextMessage.conversationId ||
+    previousMessage.audioUrl !== nextMessage.audioUrl ||
+    getTimestampValue(previousMessage.timestamp) !== getTimestampValue(nextMessage.timestamp)
+  ) {
+    return false
+  }
+
+  return areAttachmentsEqual(previousMessage.attachments, nextMessage.attachments)
+}
+
+const MessageBubble = React.memo(MessageBubbleComponent, areMessageBubblePropsEqual)
+
+MessageBubble.displayName = "MessageBubble"
+
+export default MessageBubble

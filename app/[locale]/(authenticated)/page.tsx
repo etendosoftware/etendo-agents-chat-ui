@@ -1,14 +1,12 @@
 import { createServerClient } from '@supabase/ssr';
 import type { CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import Link from "next/link";
 import { redirect } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Agent } from '@/components/chat-interface';
 import { shouldListAgentOnHome } from '@/lib/agents/access';
 import { getTranslator } from '@/i18n/translator';
 import type { Locale } from '@/i18n/config';
+import HomeAgentCard from '@/components/home-agent-card';
 
 async function getUserRole(supabaseClient: any, userId: string) {
     const { data: profile, error } = await supabaseClient
@@ -83,30 +81,23 @@ export default async function Home({ params }: { params: { locale: Locale } }) {
     const filteredAgents = localizedAgents.filter(agent => shouldListAgentOnHome(agent.access_level, userRole));
 
     return (
-        <div className='p-8'>
-            <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-8">{tHome('title')}</h1>
+        <div className='mx-auto w-full max-w-7xl px-6 py-8 md:px-10'>
+            <div className="mb-8 rounded-2xl border border-slate-200/80 bg-white/80 px-6 py-6 shadow-sm backdrop-blur-sm">
+              <h1 className="text-2xl md:text-4xl font-bold text-slate-900">{tHome('title')}</h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-700 md:text-base">{tHome('description')}</p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
                 {filteredAgents.map((agent: Agent) => (
-                    <Card key={agent.id} className="bg-white shadow-lg hover:shadow-xl transition-shadow">
-                        <CardHeader>
-                            <div className="flex items-center gap-4">
-                                <span className="text-4xl">{agent.icon}</span>
-                                <div>
-                                    <CardTitle className="text-gray-900">{agent.name}</CardTitle>
-                                    <CardDescription className='pt-2'>{agent.description}</CardDescription>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardFooter className="flex justify-end">
-                            <Link href={`${localePrefix}/chat/${agent.path.replace('/', '')}`}>
-                                <Button>{tCommon('actions.chat')}</Button>
-                            </Link>
-                        </CardFooter>
-                    </Card>
+                    <HomeAgentCard
+                      key={agent.id}
+                      agent={agent}
+                      localePrefix={localePrefix}
+                      chatLabel={tCommon('actions.chat')}
+                    />
                 ))}
                  {filteredAgents.length === 0 && (
-                    <div className="col-span-full text-center text-gray-500">
+                    <div className="col-span-full rounded-xl border border-dashed border-border/70 bg-white/60 p-8 text-center text-gray-500">
                         <p>{tHome('empty')}</p>
                     </div>
                 )}

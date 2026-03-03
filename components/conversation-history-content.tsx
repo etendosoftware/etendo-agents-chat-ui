@@ -4,13 +4,14 @@ import { ConversationHistoryContent } from "./conversation-history-content-logic
 import { Conversation } from "@/lib/actions/chat";
 
 interface ConversationHistoryProps {
-  initialConversations: Conversation[];
+  initialConversations?: Conversation[];
   agentPath: string;
   activeConversationId?: string;
   agentId: string;
+  chatwootInboxIdentifier?: string | null;
 }
 
-export function SidebarConversations({ initialConversations, agentPath, activeConversationId, agentId }: ConversationHistoryProps) {
+export function SidebarConversations({ initialConversations, agentPath, activeConversationId, agentId, chatwootInboxIdentifier }: ConversationHistoryProps) {
   return (
     <Sidebar>
       <ConversationHistoryContent
@@ -18,6 +19,7 @@ export function SidebarConversations({ initialConversations, agentPath, activeCo
         agentPath={agentPath}
         activeConversationId={activeConversationId}
         agentId={agentId}
+        chatwootInboxIdentifier={chatwootInboxIdentifier}
       />
     </Sidebar>
   )

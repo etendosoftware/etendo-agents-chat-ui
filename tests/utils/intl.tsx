@@ -1,6 +1,7 @@
 import React from 'react'
 import { render, type RenderOptions } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import enMessages from '@/messages/en'
 import esMessages from '@/messages/es'
@@ -39,11 +40,25 @@ export function renderWithIntl(
   options?: RenderOptions
 ) {
   const resolvedMessages = messages ?? getMessages(locale)
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        staleTime: 0,
+        gcTime: 0,
+      },
+      mutations: {
+        retry: false,
+      },
+    },
+  })
 
   return render(
-    <NextIntlClientProvider locale={locale} messages={resolvedMessages}>
-      {ui}
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={queryClient}>
+      <NextIntlClientProvider locale={locale} messages={resolvedMessages}>
+        {ui}
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
     options
   )
 }
