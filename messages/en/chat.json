@@ -114,6 +114,18 @@
     },
     "humanAgent": {
       "active": "A human teammate joined the conversation. Replies might take a little longer."
+    },
+    "search": {
+      "placeholder": "Search in conversation...",
+      "noResults": "No results",
+      "matchCount": "{current} of {total}"
+    },
+    "notifications": {
+      "enable": "Enable notifications",
+      "enabled": "Notifications enabled",
+      "disable": "Disable notifications",
+      "newMessage": "New message",
+      "permissionDenied": "Notifications blocked. Enable them in browser settings."
     }
   },
   "feedback": {

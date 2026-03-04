@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { User } from "@supabase/supabase-js"
 import { MoreHorizontal, LogOut, User as UserIcon, Shield, Languages, ChevronDown, Mail } from "lucide-react"
+import { NotificationBell } from "./notification-bell"
 import { Button } from "./ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuGroup, DropdownMenuLabel } from "./ui/dropdown-menu"
@@ -121,7 +122,8 @@ export function GlobalHeader({ user, userRole, initialConversations, agentPath, 
         </div>
 
         {/* Desktop buttons */}
-        <div className="hidden md:flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-2">
+          <NotificationBell />
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -197,7 +199,8 @@ export function GlobalHeader({ user, userRole, initialConversations, agentPath, 
         </div>
 
         {/* Mobile menu */}
-        <div className="md:hidden flex items-center gap-3">
+        <div className="md:hidden flex items-center gap-1">
+            <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="size-9">

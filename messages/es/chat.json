@@ -114,6 +114,18 @@
     },
     "humanAgent": {
       "active": "Un agente humano se sumó a la conversación. La respuesta puede demorar un poco."
+    },
+    "search": {
+      "placeholder": "Buscar en la conversación...",
+      "noResults": "Sin resultados",
+      "matchCount": "{current} de {total}"
+    },
+    "notifications": {
+      "enable": "Activar notificaciones",
+      "enabled": "Notificaciones activadas",
+      "disable": "Desactivar notificaciones",
+      "newMessage": "Nuevo mensaje",
+      "permissionDenied": "Notificaciones bloqueadas. Actívalas en la configuración del navegador."
     }
   },
   "feedback": {

@@ -10,6 +10,7 @@ import { Conversation } from '@/lib/actions/chat';
 import { GlobalHeader } from './global-header';
 import { useChatContext } from '@/lib/chat-context';
 import type { FetchMessagesResult } from '@/lib/actions/fetchMessages';
+import { NotificationProvider } from '@/lib/notification-context';
 
 interface ChatLayoutProps {
   agent: Agent;
@@ -66,55 +67,14 @@ export default function ChatLayout({
 
   if (!isUserLoggedIn) {
     return (
-      <div className="flex flex-col h-screen">
-        <GlobalHeader
-          user={user}
-          userRole={userRole}
-          agent={agent}
-        />
-        <main className="flex flex-1 overflow-hidden">
-          <ChatInterface
-            agent={agent}
+      <NotificationProvider agentName={agent.name}>
+        <div className="flex flex-col h-screen">
+          <GlobalHeader
             user={user}
-            agentPath={agentPath}
-            initialConversationId={initialConversationId}
-            initialMessageData={initialMessageData}
-            initialSessionId={initialSessionId}
-            initialChatwootConversationId={initialChatwootConversationId}
-            initialPrompts={initialPrompts}
+            userRole={userRole}
+            agent={agent}
           />
-        </main>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col h-screen">
-      <GlobalHeader
-        user={user}
-        userRole={userRole}
-        initialConversations={initialConversations}
-        agentPath={agentPath}
-        activeConversationId={conversationId}
-        agentId={agent.id}
-        agent={agent}
-      />
-      <div className="flex flex-1 overflow-hidden">
-        <SidebarProvider>
-          {/* Desktop Sidebar - hidden on mobile */}
-          <div className="hidden md:block">
-            <Sidebar>
-              <SidebarConversations
-                initialConversations={initialConversations}
-                agentPath={agentPath}
-                activeConversationId={conversationId}
-                agentId={agent.id}
-                chatwootInboxIdentifier={agent.chatwoot_inbox_identifier}
-              />
-            </Sidebar>
-          </div>
-          {/* Main Content */}
-          <SidebarInset>
+          <main className="flex flex-1 overflow-hidden">
             <ChatInterface
               agent={agent}
               user={user}
@@ -125,9 +85,54 @@ export default function ChatLayout({
               initialChatwootConversationId={initialChatwootConversationId}
               initialPrompts={initialPrompts}
             />
-          </SidebarInset>
-        </SidebarProvider>
+          </main>
+        </div>
+      </NotificationProvider>
+    );
+  }
+
+  return (
+    <NotificationProvider agentName={agent.name}>
+      <div className="flex flex-col h-screen">
+        <GlobalHeader
+          user={user}
+          userRole={userRole}
+          initialConversations={initialConversations}
+          agentPath={agentPath}
+          activeConversationId={conversationId}
+          agentId={agent.id}
+          agent={agent}
+        />
+        <div className="flex flex-1 overflow-hidden">
+          <SidebarProvider>
+            {/* Desktop Sidebar - hidden on mobile */}
+            <div className="hidden md:block">
+              <Sidebar>
+                <SidebarConversations
+                  initialConversations={initialConversations}
+                  agentPath={agentPath}
+                  activeConversationId={conversationId}
+                  agentId={agent.id}
+                  chatwootInboxIdentifier={agent.chatwoot_inbox_identifier}
+                />
+              </Sidebar>
+            </div>
+            {/* Main Content */}
+            <SidebarInset>
+              <ChatInterface
+                agent={agent}
+                user={user}
+                agentPath={agentPath}
+                initialConversationId={initialConversationId}
+                initialMessageData={initialMessageData}
+                initialSessionId={initialSessionId}
+                initialChatwootConversationId={initialChatwootConversationId}
+                initialPrompts={initialPrompts}
+              />
+            </SidebarInset>
+          </SidebarProvider>
+        </div>
       </div>
-    </div>
+    </NotificationProvider>
   );
 }

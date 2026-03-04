@@ -17,6 +17,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useChatContext } from '@/lib/chat-context';
 import { useConversationsInfinite, useDeleteConversation, useUpdateConversationTitle } from '@/hooks/use-conversations';
 import { usePrefetchMessages } from '@/hooks/use-messages';
+import { useUnreadConversations } from '@/hooks/use-unread-conversations';
 import { cn } from '@/lib/utils';
 
 // Debounce hook
@@ -75,6 +76,7 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
 
   // Flatten pages into a single conversations array
   const conversations: Conversation[] = data?.pages.flat() ?? [];
+  const { isUnread } = useUnreadConversations(conversations, activeConversationId);
   const isSearching = searchTerm !== debouncedSearchTerm || (isFetching && !!debouncedSearchTerm);
 
   const handleNewChatNavigation = useCallback(() => {
@@ -212,6 +214,7 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
                         : t('untitledConversation');
 
                       const isActive = item._id === activeConversationId;
+                      const hasUnread = !isActive && isUnread(item);
 
                       return (
                         <SidebarMenuItem
@@ -236,9 +239,12 @@ export function ConversationHistoryContent({ initialConversations, agentPath, ac
                                     type="button"
                                     onClick={() => navigateToConversationSoft(item._id, agentPath, locale)}
                                     onMouseEnter={() => handlePrefetchConversation(item._id)}
-                                    className="w-full text-left"
+                                    className="w-full text-left flex items-center gap-2"
                                   >
-                                    <span className="block truncate text-sm font-medium">{cleanedTitle}</span>
+                                    <span className="flex-1 min-w-0 truncate text-sm font-medium">{cleanedTitle}</span>
+                                    {hasUnread && (
+                                      <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="unread" />
+                                    )}
                                   </button>
                                 </TooltipTrigger>
                               </SidebarMenuButton>

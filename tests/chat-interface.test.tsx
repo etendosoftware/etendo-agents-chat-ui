@@ -131,6 +131,173 @@ describe('ChatInterface', () => {
     ;(window as any).EventSource = NoopEventSource as any
   })
 
+  // ------------------------------------------------------------------ //
+  // Search bar
+  // ------------------------------------------------------------------ //
+
+  describe('search bar', () => {
+    const tSearch = createTranslator('en', 'chat.interface.search')
+    const tInterface = createTranslator('en', 'chat.interface')
+
+    const messagesWithContent = {
+      messages: [
+        {
+          id: 'm1',
+          conversationId: 'conv-1',
+          agentId: 'agent-1',
+          sender: 'agent' as const,
+          content: 'Spring Boot 3.1.4 is available.',
+          timestamp: new Date(),
+        },
+        {
+          id: 'm2',
+          conversationId: 'conv-1',
+          agentId: 'agent-1',
+          sender: 'user' as const,
+          content: 'Thanks for the Spring Boot info.',
+          timestamp: new Date(),
+        },
+        {
+          id: 'm3',
+          conversationId: 'conv-1',
+          agentId: 'agent-1',
+          sender: 'agent' as const,
+          content: 'No problem at all.',
+          timestamp: new Date(),
+        },
+      ],
+      sessionId: 'session-1',
+      chatwootConversationId: null,
+    }
+
+    function renderChat() {
+      useMessagesMock.mockReturnValue({
+        data: messagesWithContent,
+        isPending: false,
+        isFetching: false,
+        isError: false,
+        refetch: vi.fn(),
+      })
+
+      return renderWithIntl(
+        <ChatInterface
+          agent={agent}
+          user={null}
+          agentPath="sales"
+          initialConversationId="conv-1"
+          initialMessageData={messagesWithContent}
+          initialSessionId="session-1"
+        />,
+      )
+    }
+
+    it('opens the search bar when the search icon button is clicked', async () => {
+      renderChat()
+
+      expect(screen.queryByPlaceholderText(tSearch('placeholder'))).not.toBeInTheDocument()
+
+      const searchBtn = screen.getByRole('button', { name: '' })
+      // Find the search button (magnifying glass) — it is the first icon-only button in the header
+      const allIconBtns = screen.getAllByRole('button')
+      const headerSearchBtn = allIconBtns.find((btn) =>
+        btn.querySelector('svg') && btn.closest('.border-b'),
+      )!
+      fireEvent.click(headerSearchBtn)
+
+      expect(await screen.findByPlaceholderText(tSearch('placeholder'))).toBeInTheDocument()
+    })
+
+    it('opens the search bar on Ctrl+F and closes on Escape', async () => {
+      renderChat()
+
+      fireEvent.keyDown(window, { key: 'f', ctrlKey: true })
+
+      const input = await screen.findByPlaceholderText(tSearch('placeholder'))
+      expect(input).toBeInTheDocument()
+
+      fireEvent.keyDown(input, { key: 'Escape' })
+
+      await waitFor(() => {
+        expect(screen.queryByPlaceholderText(tSearch('placeholder'))).not.toBeInTheDocument()
+      })
+    })
+
+    it('shows correct match count when search term matches messages', async () => {
+      renderChat()
+
+      fireEvent.keyDown(window, { key: 'f', ctrlKey: true })
+      const input = await screen.findByPlaceholderText(tSearch('placeholder'))
+
+      fireEvent.change(input, { target: { value: 'Spring Boot' } })
+
+      await waitFor(() => {
+        expect(screen.getByText(tSearch('matchCount', { current: 1, total: 2 }))).toBeInTheDocument()
+      })
+    })
+
+    it('shows "No results" when the search term has no matches', async () => {
+      renderChat()
+
+      fireEvent.keyDown(window, { key: 'f', ctrlKey: true })
+      const input = await screen.findByPlaceholderText(tSearch('placeholder'))
+
+      fireEvent.change(input, { target: { value: 'Django' } })
+
+      await waitFor(() => {
+        expect(screen.getByText(tSearch('noResults'))).toBeInTheDocument()
+      })
+    })
+
+    it('clears search and closes bar when X button is clicked', async () => {
+      renderChat()
+
+      fireEvent.keyDown(window, { key: 'f', ctrlKey: true })
+      const input = await screen.findByPlaceholderText(tSearch('placeholder'))
+      fireEvent.change(input, { target: { value: 'Spring Boot' } })
+
+      // X button is the last button inside the search bar
+      const searchBarContainer = input.closest('div')!.parentElement!
+      const buttons = searchBarContainer.querySelectorAll('button')
+      const closeBtn = buttons[buttons.length - 1] as HTMLButtonElement
+      fireEvent.click(closeBtn)
+
+      await waitFor(() => {
+        expect(screen.queryByPlaceholderText(tSearch('placeholder'))).not.toBeInTheDocument()
+      })
+    })
+
+    it('navigates to next match when Enter is pressed and to previous on Shift+Enter', async () => {
+      renderChat()
+
+      fireEvent.keyDown(window, { key: 'f', ctrlKey: true })
+      const input = await screen.findByPlaceholderText(tSearch('placeholder'))
+      fireEvent.change(input, { target: { value: 'Spring Boot' } })
+
+      // Start at 1 of 2
+      await waitFor(() => {
+        expect(screen.getByText(tSearch('matchCount', { current: 1, total: 2 }))).toBeInTheDocument()
+      })
+
+      // Next match
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(screen.getByText(tSearch('matchCount', { current: 2, total: 2 }))).toBeInTheDocument()
+      })
+
+      // Wraps back to first
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(screen.getByText(tSearch('matchCount', { current: 1, total: 2 }))).toBeInTheDocument()
+      })
+
+      // Shift+Enter goes to previous (wraps to last)
+      fireEvent.keyDown(input, { key: 'Enter', shiftKey: true })
+      await waitFor(() => {
+        expect(screen.getByText(tSearch('matchCount', { current: 2, total: 2 }))).toBeInTheDocument()
+      })
+    })
+  })
+
   it('sends a message and forwards payload to webhook', async () => {
     const { container } = renderWithIntl(
       <ChatInterface
