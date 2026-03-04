@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Plus, Send, Bot, UserRound } from "lucide-react"
+import { Plus, Send, Bot, UserRound, Search, X, ChevronUp, ChevronDown } from "lucide-react"
 import MessageBubble from "./message-bubble"
 import FileUpload from "./file-upload"
 import AudioRecorder from "./audio-recorder"
@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useChatContext } from "@/lib/chat-context"
+import { useNotificationContext } from "@/lib/notification-context"
 import { useMessages } from "@/hooks/use-messages"
 import { useQueryClient } from "@tanstack/react-query"
 import { useVirtualizer } from "@tanstack/react-virtual"
@@ -120,6 +121,8 @@ export default function ChatInterface({
   const tErrors = useTranslations('chat.errors');
   const queryClient = useQueryClient()
   const { conversationId, navigateToConversation, navigateToConversationSoft } = useChatContext()
+  const notificationCtx = useNotificationContext()
+  const notifyNewMessage = notificationCtx?.notifyNewMessage
 
   const [selectedAgent] = useState<Agent>(agent)
   const [localMessages, setLocalMessages] = useState<Message[]>([])
@@ -180,6 +183,22 @@ export default function ChatInterface({
   const chatwootBootstrapFetchDoneRef = useRef<Set<string>>(new Set())
   const chatwootBootstrapFetchInFlightRef = useRef<Set<string>>(new Set())
   const [chatwootHasHuman, setChatwootHasHuman] = useState(false)
+
+  // Search within conversation
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [activeMatchIndex, setActiveMatchIndex] = useState(0)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Search
+  const tSearch = useTranslations('chat.interface.search')
+
+  // Keep notifyNewMessage in a ref so SSE callbacks always have the latest version
+  const notifyNewMessageRef = useRef(notifyNewMessage)
+  useEffect(() => {
+    notifyNewMessageRef.current = notifyNewMessage
+  }, [notifyNewMessage])
+
   const isDraftConversationId = useCallback((value?: string | null) => {
     return Boolean(value && value.startsWith('draft:'))
   }, [])
@@ -878,6 +897,13 @@ export default function ChatInterface({
         const normalized = normalizeChatwootMessageRef.current(rawMessage)
         if (normalized) {
           commitChatwootMessagesRef.current([normalized])
+          if (normalized.sender === "agent" && normalized.content) {
+            const mongoId = conversationId
+            const convUrl = mongoId
+              ? `/${locale}/chat/${agentPath}/${mongoId}`
+              : undefined
+            notifyNewMessageRef.current?.(normalized.content, convUrl)
+          }
         }
       } catch (error) {
         console.error("[chatwoot] Error procesando SSE", error)
@@ -1441,6 +1467,11 @@ export default function ChatInterface({
         })
       }
 
+      if (streamedContent && targetConversationId) {
+        const convUrl = `/${locale}/chat/${agentPath}/${targetConversationId}`
+        notifyNewMessage?.(streamedContent, convUrl)
+      }
+
       navigatingFromNewChatRef.current = false
     } catch (error) {
       debugLog("send-error", {
@@ -1599,6 +1630,15 @@ export default function ChatInterface({
     isConversationHydrating ||
     (Boolean(conversationId) && isConversationSwitching && displayMessages.length === 0)
 
+  const searchMatchIndices = useMemo(() => {
+    if (!searchTerm.trim()) return []
+    const lowerTerm = searchTerm.toLowerCase()
+    return displayMessages.reduce<number[]>((acc, msg, idx) => {
+      if (msg.content?.toLowerCase().includes(lowerTerm)) acc.push(idx)
+      return acc
+    }, [])
+  }, [displayMessages, searchTerm])
+
   const messageVirtualizer = useVirtualizer({
     count: displayMessages.length,
     getScrollElement: () => messagesContainerRef.current,
@@ -1743,21 +1783,152 @@ export default function ChatInterface({
     prevDisplayCountRef.current = displayMessages.length
   }, [displayMessages.length, isLoading, isResponding, scrollToBottom])
 
+  // Search keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+        e.preventDefault()
+        setSearchOpen(true)
+        setTimeout(() => searchInputRef.current?.focus(), 0)
+      }
+      if (e.key === "Escape" && searchOpen) {
+        setSearchOpen(false)
+        setSearchTerm("")
+        setActiveMatchIndex(0)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [searchOpen])
+
+  // Scroll to active match
+  useEffect(() => {
+    if (searchMatchIndices.length > 0 && searchOpen) {
+      const matchIndex = searchMatchIndices[activeMatchIndex]
+      if (matchIndex !== undefined) {
+        messageVirtualizer.scrollToIndex(matchIndex, { align: "center" })
+      }
+    }
+  }, [activeMatchIndex, searchMatchIndices, searchOpen, messageVirtualizer])
+
+  const handleSearchPrev = useCallback(() => {
+    setActiveMatchIndex((prev) =>
+      prev > 0 ? prev - 1 : searchMatchIndices.length - 1,
+    )
+  }, [searchMatchIndices.length])
+
+  const handleSearchNext = useCallback(() => {
+    setActiveMatchIndex((prev) =>
+      prev < searchMatchIndices.length - 1 ? prev + 1 : 0,
+    )
+  }, [searchMatchIndices.length])
+
+
   return (
     <div className="h-full w-full">
       <div className="w-full h-full">
         <Card className="h-full flex flex-col rounded-none border-0 bg-gradient-to-b from-white via-slate-50/70 to-slate-100/50 py-0 md:py-4">
           {selectedAgent && (
-            <div className="border-b border-border/60 bg-white/65 px-4 py-4 md:px-6">
-              <div className="flex w-full items-center gap-3">
+            <div className="border-b border-border/60 bg-white/65">
+              <div className="flex w-full items-center gap-3 px-4 py-4 md:px-6">
                 <Avatar className={`${selectedAgent.color} border-2 border-white/20`}>
                   <AvatarFallback className="text-2xl bg-transparent">{selectedAgent.icon}</AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-slate-900">{selectedAgent.name}</h3>
                   <p className="hidden text-sm text-slate-500 md:block">{selectedAgent.description}</p>
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-slate-500 hover:text-slate-700 shrink-0"
+                  onClick={() => {
+                    setSearchOpen((prev) => !prev)
+                    if (!searchOpen) {
+                      setTimeout(() => searchInputRef.current?.focus(), 0)
+                    } else {
+                      setSearchTerm("")
+                      setActiveMatchIndex(0)
+                    }
+                  }}
+                >
+                  <Search className="h-4 w-4" />
+                </Button>
               </div>
+              {searchOpen && (
+                <div className="flex items-center gap-2 border-t border-border/40 bg-white/50 px-4 py-2 md:px-6">
+                  <Search className="h-4 w-4 text-slate-400 shrink-0" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value)
+                      setActiveMatchIndex(0)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        if (e.shiftKey) handleSearchPrev()
+                        else handleSearchNext()
+                      }
+                      if (e.key === "Escape") {
+                        setSearchOpen(false)
+                        setSearchTerm("")
+                        setActiveMatchIndex(0)
+                      }
+                    }}
+                    placeholder={tSearch("placeholder")}
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  />
+                  {searchTerm && (
+                    <span className="text-xs text-slate-500 whitespace-nowrap">
+                      {searchMatchIndices.length > 0
+                        ? tSearch("matchCount", {
+                            current: activeMatchIndex + 1,
+                            total: searchMatchIndices.length,
+                          })
+                        : tSearch("noResults")}
+                    </span>
+                  )}
+                  <div className="flex items-center gap-0.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={searchMatchIndices.length === 0}
+                      onClick={handleSearchPrev}
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={searchMatchIndices.length === 0}
+                      onClick={handleSearchNext}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => {
+                      setSearchOpen(false)
+                      setSearchTerm("")
+                      setActiveMatchIndex(0)
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1844,6 +2015,8 @@ export default function ChatInterface({
                         agent={selectedAgent}
                         user={user}
                         userAvatarUrl={userAvatarUrl}
+                        highlightTerm={searchOpen && searchTerm ? searchTerm : undefined}
+                        isActiveMatch={searchOpen && searchMatchIndices[activeMatchIndex] === virtualItem.index}
                       />
                     </div>
                   )

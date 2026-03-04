@@ -14,6 +14,8 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeSanitize from "rehype-sanitize"
 import type { Components } from "react-markdown"
+import { visit } from "unist-util-visit"
+import type { Plugin } from "unified"
 import { User } from "@supabase/supabase-js"
 import { toast } from "sonner"
 import { useFeedback } from "@/hooks/use-feedback"
@@ -80,9 +82,42 @@ interface MessageBubbleProps {
   agent: Agent
   user: User | null
   userAvatarUrl: string | null
+  highlightTerm?: string
+  isActiveMatch?: boolean
 }
 
-function MessageBubbleComponent({ message, agent, user, userAvatarUrl }: MessageBubbleProps) {
+// Rehype plugin that wraps matched text in <mark> elements.
+// Runs after rehypeSanitize so marks are never stripped.
+function rehypeHighlightTerm(term: string): Plugin {
+  return () => (tree: unknown) => {
+    if (!term) return
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const regex = new RegExp(`(${escaped})`, "gi")
+    visit(tree as Parameters<typeof visit>[0], "text", (node: { type: string; value: string }, index, parent: { children: unknown[] } | null) => {
+      if (typeof index !== "number" || !parent) return
+      regex.lastIndex = 0
+      if (!regex.test(node.value)) return
+      regex.lastIndex = 0
+      const parts = node.value.split(regex).filter(Boolean)
+      if (parts.length <= 1) return
+      const newNodes = parts.map((part) => {
+        if (part.toLowerCase() === term.toLowerCase()) {
+          return {
+            type: "element",
+            tagName: "mark",
+            properties: { className: ["bg-yellow-200", "rounded-sm"] },
+            children: [{ type: "text", value: part }],
+          }
+        }
+        return { type: "text", value: part }
+      })
+      parent.children.splice(index, 1, ...newNodes)
+      return index + newNodes.length
+    })
+  }
+}
+
+function MessageBubbleComponent({ message, agent, user, userAvatarUrl, highlightTerm, isActiveMatch }: MessageBubbleProps) {
   const t = useTranslations("chat.feedback")
   const tInterface = useTranslations("chat.interface")
   const { mutate: submitFeedbackMutation } = useFeedback()
@@ -263,13 +298,17 @@ function MessageBubbleComponent({ message, agent, user, userAvatarUrl }: Message
         <div
           className={`rounded-2xl border p-3 shadow-sm ${
             isUser ? "border-primary/40 bg-primary/10" : "border-slate-200/80 bg-white"
-          }`}
+          }${isActiveMatch ? " ring-2 ring-yellow-400" : ""}`}
         >
           {cleanedContent && (
             <div className="max-w-none text-sm leading-relaxed break-words [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_a]:text-primary [&_a]:underline [&_code]:font-mono">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeSanitize]}
+                rehypePlugins={
+                  highlightTerm
+                    ? [rehypeSanitize, rehypeHighlightTerm(highlightTerm)]
+                    : [rehypeSanitize]
+                }
                 components={markdownComponents}
               >
                 {cleanedContent}
@@ -484,6 +523,10 @@ function getTimestampValue(value: Date) {
 }
 
 function areMessageBubblePropsEqual(previous: MessageBubbleProps, next: MessageBubbleProps) {
+  if (previous.highlightTerm !== next.highlightTerm || previous.isActiveMatch !== next.isActiveMatch) {
+    return false
+  }
+
   if (previous.userAvatarUrl !== next.userAvatarUrl) {
     return false
   }
