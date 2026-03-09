@@ -1,18 +1,19 @@
 import '../../globals.css'
 import { createClient } from '@/lib/supabase/server';
+import { buildProfileAccessState, getUserAccessLabel } from '@/lib/auth/access-state';
 import AuthenticatedLayoutClient from './authenticated-layout-client';
 
-async function getUserRole(supabaseClient: any, userId: string) {
+async function getUserAccessState(supabaseClient: any, userId: string) {
     const { data: profile, error } = await supabaseClient
         .from('profiles')
-        .select('role')
+        .select('role, is_partner, is_customer')
         .eq('id', userId)
         .single();
 
     if (error || !profile) {
         return null;
     }
-    return profile.role as 'admin' | 'partner';
+    return buildProfileAccessState(profile);
 }
 
 export default async function AuthenticatedLayout({
@@ -22,10 +23,10 @@ export default async function AuthenticatedLayout({
 }>) {
     const supabaseClient = createClient();
     const { data: { user } } = await supabaseClient.auth.getUser();
-    const userRole = user ? await getUserRole(supabaseClient, user.id) : null;
+    const accessState = user ? await getUserAccessState(supabaseClient, user.id) : null;
 
     return (
-        <AuthenticatedLayoutClient user={user} userRole={userRole}>
+        <AuthenticatedLayoutClient user={user} userRole={getUserAccessLabel(accessState)}>
             {children}
         </AuthenticatedLayoutClient>
     )

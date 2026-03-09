@@ -5,20 +5,21 @@ import { redirect } from 'next/navigation';
 
 import { AdminPanelClient } from './AdminPanelClient';
 import { Agent } from '@/components/chat-interface';
+import { buildProfileAccessState } from '@/lib/auth/access-state';
 import { getTranslations } from 'next-intl/server';
 import { locales, defaultLocale, type Locale } from '@/i18n/config';
 
-async function getUserRole(supabaseClient: any, userId: string) {
+async function getUserAccessState(supabaseClient: any, userId: string) {
     const { data: profile, error } = await supabaseClient
         .from('profiles')
-        .select('role')
+        .select('role, is_partner, is_customer')
         .eq('id', userId)
         .single();
 
     if (error || !profile) {
         return null;
     }
-    return profile.role as 'admin' | 'partner';
+    return buildProfileAccessState(profile);
 }
 
 export default async function AdminPage({ params }: { params: { locale: Locale } }) {
@@ -44,9 +45,9 @@ export default async function AdminPage({ params }: { params: { locale: Locale }
         redirect('/auth/login');
     }
 
-    const userRole = await getUserRole(supabase, user.id);
+    const accessState = await getUserAccessState(supabase, user.id);
 
-    if (userRole !== 'admin') {
+    if (accessState?.isAdmin !== true) {
         redirect('/');
     }
 

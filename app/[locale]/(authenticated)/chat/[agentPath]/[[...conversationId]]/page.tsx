@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getConversationHistory, getConversationMetadata, getMessagesForConversation } from '@/lib/actions/chat';
 import { fetchChatwootConversationMessages } from '@/lib/chatwoot/api';
 import { canUserAccessAgent } from '@/lib/agents/access';
+import { buildProfileAccessState, getUserAccessLabel } from '@/lib/auth/access-state';
 import ChatLayout from '@/components/chat-layout';
 import { Agent } from '@/components/chat-interface';
 import { ChatContextProvider } from '@/lib/chat-context';
@@ -60,17 +61,17 @@ export async function generateMetadata({ params }: { params: { locale: string; a
     }
 }
 
-async function getUserRole(supabaseClient: any, userId: string) {
+async function getUserAccessState(supabaseClient: any, userId: string) {
     const { data: profile, error } = await supabaseClient
         .from('profiles')
-        .select('role')
+        .select('role, is_partner, is_customer')
         .eq('id', userId)
         .single();
 
     if (error || !profile) {
         return null;
     }
-    return profile.role as 'admin' | 'partner' | 'non_client';
+    return buildProfileAccessState(profile);
 }
 
 export default async function ChatPage({ params }: { params: { locale: string; agentPath: string; conversationId?: string[] } }) {
@@ -94,10 +95,10 @@ export default async function ChatPage({ params }: { params: { locale: string; a
         return <div className="p-4">{t('errors.agentNotFound')}</div>;
     }
 
-    const userRole = user ? await getUserRole(supabaseClient, user.id) : null;
+    const accessState = user ? await getUserAccessState(supabaseClient, user.id) : null;
 
     const isAuthenticated = Boolean(user);
-    if (!canUserAccessAgent({ accessLevel: agent.access_level, userRole, isAuthenticated })) {
+    if (!canUserAccessAgent({ accessLevel: agent.access_level, accessState, isAuthenticated })) {
         if (!isAuthenticated) {
             redirect(`/${params.locale}/auth/login`);
         }
@@ -240,7 +241,7 @@ export default async function ChatPage({ params }: { params: { locale: string; a
                 initialChatwootConversationId={agent.chatwoot_inbox_identifier ? (initialChatwootConversationId ?? null) : null}
                 initialConversations={initialConversations}
                 agentPath={params.agentPath}
-                userRole={userRole}
+                userRole={getUserAccessLabel(accessState)}
                 initialPrompts={prompts.map((prompt, index) => ({
                     id: prompt.id ?? `prompt-${index}`,
                     content: prompt.content,

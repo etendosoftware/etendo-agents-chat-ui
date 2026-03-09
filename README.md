@@ -1,187 +1,272 @@
-# Etendo Agents – n8n Chat Interface
+# Etendo Chat Interface
 
-An application that authenticates users with Supabase, proxies chat traffic to n8n workflows, and keeps long-lived conversation history in MongoDB. It includes an admin console for managing chat agents, dynamic
-access control per agent, and a rich chat surface supporting files, audio notes, link previews, and feedback collection.
+Next.js application for Etendo support and customer chat. It authenticates users with Supabase, stores conversation history in MongoDB, proxies messages to n8n workflows, and can route selected agents through Chatwoot.
 
-## Feature Highlights
-- Email/password and Google OAuth sign-in with Supabase, including Jira-based partner verification and session refresh in middleware.
-- Role-aware navigation (admin, partner, non_client/guest) with protected routes, agent-level access tiers, and an admin-only management panel.
-- Agent metadata (name, description) and quick-start prompts are stored with locale-aware translations so the UI tracks the active language automatically.
-- Responsive chat workspace with conversation history, streaming responses from n8n, attachments, audio recording, video-analysis flagging, and feedback prompts.
-- Agent catalog sourced from Supabase with inline create/update/delete, icon/color configuration, and webhook endpoints per agent.
-- MongoDB-backed conversation archive with rename/delete/search/pagination and per-user isolation.
-- Ancillary APIs for link previews and webhook proxying that forward uploaded files/audio to n8n or Chatwoot, preserving metadata such as the **video analysis** flag and rendering inbound Chatwoot attachments (images, audio, files) in the UI.
+## What this project does
 
-## Architecture Overview
-- **Next.js App Router** (`app/`) renders public auth flows and authenticated layouts; middleware guards the home dashboard.
-- **Supabase** handles authentication, session cookies, and tables (`profiles`, `agents`, `agent_translations`, `agent_prompts`, `feedback`) accessed through `@/lib/supabase`.
-- **MongoDB** stores conversations in the `conversations` collection (documents contain `messages`, `sessionId`, `agentId`, timestamps, etc.).
-- **n8n** receives chat payloads via `/api/webhook`, streams newline-delimited JSON chunks, and returns agent replies.
-- **UI Layer** is built with Tailwind CSS 4, shadcn/ui components, and custom gradients in `globals.css`.
+- Provides email/password and Google OAuth authentication.
+- Classifies authenticated users with Jira-based memberships.
+- Enforces per-agent access control for `public`, `non_client`, `partner`, `customer`, and `admin` experiences.
+- Renders a chat UI with attachments, audio messages, link previews, conversation history, and feedback.
+- Sends messages either to n8n workflows or to Chatwoot inboxes, depending on agent configuration.
 
+## Stack
 
-app/
-├─ auth/                Public auth flows (register with Jira check, login redirect by role)
-├─ (authenticated)/     Logged-in shell (global header, dashboard, chat, admin)
-│  ├─ page.tsx          Home listing of partner/admin agents
-│  ├─ chat/[agent]/     Chat workspace with conversation history & ACL check
-│  └─ admin/            Admin panel gating and agent management
-├─ api/                 Edge/server routes (webhook proxy, link preview)
-├─ layout.tsx           Root metadata and font setup
-└─ middleware.ts        Session refresh + lightweight route protection
-components/
-├─ chat-interface.tsx   Client chat surface (stream handling, attachments, audio, video flag)
-├─ chat-layout.tsx      Layout that injects sidebar history for signed users
-├─ conversation-history-content(-logic).tsx
-│                       Search/pagination/rename/delete tied to server actions
-├─ global-header.tsx    Role-aware nav + mobile sheet, hides login for guest agents
-└─ ui/                  shadcn component library
-lib/
-├─ actions/             Server actions for conversations, titles, feedback
-├─ mongodb.ts           Cached MongoDB connector
-└─ supabase/            Browser and server Supabase clients
+- `Next.js 14` with App Router
+- `Supabase` for auth and application tables
+- `MongoDB` for conversation persistence
+- `n8n` for automation and AI workflows
+- `Chatwoot` for inbox-based conversations
+- `next-intl` for `en` and `es`
+- `Vitest` for tests
 
+## High-level architecture
 
-## Roles & Access Control
+- `app/` contains the localized UI, auth flows, authenticated pages, and API routes.
+- `components/` contains the chat UI, admin UI, and shared interface components.
+- `lib/` contains access control, auth helpers, MongoDB access, Supabase helpers, and server actions.
+- `workflow/` contains exported n8n workflows used by the app.
+- `supabase/migrations/` contains SQL migrations for the application schema.
 
-| Role        | How assigned                                                               | Home (`/`) | Chat (`/chat/[agent]`)                                  | Admin (`/admin`) |
-|-------------|-----------------------------------------------------------------------------|------------|---------------------------------------------------------|------------------|
-| `admin`     | Manually set in `profiles` or promoted in Supabase                         | ✅         | ✅ all agents                                           | ✅               |
-| `partner`   | Jira webhook returns `isJiraUser: true` during sign up / OAuth              | ✅         | ✅ agents marked `partner`                              | ⛔               |
-| `non_client`| Default for regular sign ups (no Jira match)                                | ✅         | ✅ agents marked `non_client`                           | ⛔               |
-| Guest       | Unauthenticated visitor                                                     | ⛔ (redirected to login) | ✅ only agents marked `public` (guests only)             | ⛔               |
+## Main flows
 
-Additional notes:
-- `/` is guarded by middleware and returns only partner/admin agents (public agents are intentionally hidden from authenticated users).
-- `/chat/[agent]` revalidates the agent record and enforces the agent-level `access_level` (`public`, `non_client`, `partner`, `admin`) before rendering.
-- `/admin` redirects non-admins back to `/`.
+### Authentication
 
-## Data Model Expectations
+- Email/password login is handled with Supabase client auth.
+- Google OAuth is completed in `app/[locale]/auth/callback/route.ts`.
+- After sign up or OAuth login, the app calls `JIRA_WEBHOOK_URL` to resolve Jira memberships.
 
-### Supabase Tables
-- `profiles`: `{ id (UUID, matches auth.user.id), role text }`
-- `agents`: `{ id uuid, name, description, webhookurl, path, color, icon, access_level }`<br/>`name`/`description` remain for backwards compatibility and as fallback values.
-- `agent_translations`: `{ id, agent_id → agents.id, locale, name, description, created_at, updated_at }`
-- `agent_prompts`: `{ id, agent_id → agents.id, locale, content, sort_order, created_at }`
-- `feedback`: `{ id, message_id, conversation_id, agent_id, rating, feedback_text, user_id }`
+### Jira membership resolution
 
-> Ensure row-level security policies allow the application to read/write rows owned by the current user (and full access for admin users where required).
+The Jira webhook is expected to return:
 
-### MongoDB (`conversations` collection)
-Each document resembles:
 ```json
 {
-  "_id": ObjectId,
-  "sessionId": "uuid-or-random",
-  "agentId": "supabase_agent_id",
-  "email": "user@example.com",
-  "conversationTitle": "First prompt…",
-  "messages": [{ "type": "human"|"ai", "data": { "content": "..." } }],
-  "createdAt": ISODate,
-  "updatedAt": ISODate
+  "isJiraUser": true,
+  "isESD": true,
+  "isCSP": false
 }
 ```
 
-Queries always include email to enforce per-user isolation.
+The app maps that response to profile memberships:
 
-## Integrating n8n
+- `isESD -> is_partner`
+- `isCSP -> is_customer`
+- `role` is kept for backward compatibility and admin handling
 
-- Each agent’s webhookurl should point to the base n8n endpoint that will receive chat payloads.
-- The proxy (/api/webhook) forwards FormData fields:
+This allows one user to belong to both Service Desks at the same time.
 
-  | Field         | Description                                                |
-  |---------------|------------------------------------------------------------|
-  | message     | Trimmed user text or placeholder ([Audio message], etc.) |
-  | agentId     | Supabase agent UUID                                        |
-  | sessionId   | Stable ID (userId + timestamp or stored conversation)      |
-  | conversationId | Current Mongo _id, when available                      |
-  | userEmail   | Authenticated user email (optional for guests)             |
-  | videoAnalysis | "true" when a video upload should trigger extra logic  |
-  | file_*      | Any uploaded files                                         |
-  | audio       | Recorded audio clip (audio/webm)                         |
-- n8n should respond with a streaming body where each line is JSON; chat-interface looks for objects like:
+### Chat delivery
 
-  {"type":"item","content":"partial response text"}
+- `app/api/webhook/route.ts` is the main entry point used by the chat UI.
+- Standard agents forward requests to the configured n8n webhook.
+- Agents with `chatwoot_inbox_identifier` are routed through Chatwoot instead.
+- Chatwoot live updates are streamed from `app/api/chatwoot/stream/route.ts` with Server-Sent Events.
 
-  and may emit an early line containing { "conversationId": "<mongo-id>" } to update the URL.
+## Access model
 
-## Environment Configuration
+### Profile access state
 
-Create .env.local with:
+`profiles` now supports both legacy role information and explicit Jira memberships:
 
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-MONGODB_URI=mongodb+srv://...
-MONGODB_DB_NAME=chat_history         # optional override
-JIRA_WEBHOOK_URL=https://...         # POST endpoint returning { isJiraUser: boolean }
-CHATWOOT_BASE_URL=https://chatwoot.example.com
-CHATWOOT_ACCOUNT_ID=1
-CHATWOOT_API_TOKEN=xxxxxx              # public API inbox token for uploads
-CHATWOOT_WEBHOOK_TOKEN=secret-value    # shared secret that Chatwoot will use when calling /api/chatwoot/webhook
-NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX       # optional GA4 measurement ID
+- `role`
+- `is_partner`
+- `is_customer`
 
-If you run locally, also provide NEXT_PUBLIC_SITE_URL to n8n if needed (not referenced in code).
+The effective access state is built in `lib/auth/access-state.ts`.
 
-## Getting Started
+### Agent access levels
 
-1. Install dependencies
+Each record in `agents.access_level` must be one of:
 
-    npm install            # or pnpm install / yarn
-2. Configure environment
-    - Populate .env.local with the variables above.
-    - Seed Supabase with at least one admin profile and a starter agent.
-3. Run development server
+- `public`: guest-only access
+- `non_client`: authenticated users without Jira memberships
+- `partner`: users with `is_partner = true`
+- `customer`: users with `is_customer = true`
+- `admin`: admins only
 
-    npm run dev
-    Visit http://localhost:3000.
-4. Production build
+Access rules are enforced in `lib/agents/access.ts`.
 
-    npm run build
-    npm start
+### Important behavior
 
-## Admin Workflow
+- `admin` bypasses all agent restrictions.
+- `partner + customer` users can access both partner and customer agents.
+- `non_client` means authenticated but not matched to ESD or CSP.
+- `public` agents are for unauthenticated visitors only.
 
-- Navigate to /admin as an admin user.
-- Use “New Agent” to create entries; each agent can now define name/description per locale in the translations tab (default locale is required) alongside webhook URL (base), path (leading /), icon emoji, color class, access level, and ordered prompts for every locale.
-- Existing agents can be edited or deleted; operations upsert both the base agent row and the locale translations with toast feedback on success/error.
+## Data model
 
-## Chat Experience
+### Supabase tables
 
-- Sidebar lists 10 most recent conversations (with infinite scroll, search, rename, delete) via server actions (fetchConversations, updateConversationTitle, deleteConversation).
-- Chat composer supports:
-    - Enter to send, Shift/Ctrl+Enter for new line.
-    - File uploads (up to 10 MB each), audio recording (webm), and optional video analysis flag.
-    - Markdown rendering, link previews via /api/link-preview, YouTube embeds, attachment download buttons, and rating/feedback submission.
-    - Session IDs persist per conversation; guests get a generated UUID, authenticated users load existing history.
-- New conversations render any locale-specific prompts configured for the agent (falling back to the default locale when needed) as introductory agent bubbles before user input.
+Minimum expected tables:
 
-## Chatwoot Integration
+- `profiles`
+  - `id uuid`
+  - `role text`
+  - `is_partner boolean`
+  - `is_customer boolean`
+- `agents`
+  - `id uuid`
+  - `name text`
+  - `description text`
+  - `webhookurl text`
+  - `path text`
+  - `color text`
+  - `icon text`
+  - `access_level text`
+  - `requires_email boolean`
+  - `chatwoot_inbox_identifier text`
+- `agent_translations`
+  - localized `name` and `description`
+- `agent_prompts`
+  - localized initial prompts per agent
+- `feedback`
+  - message feedback submitted from the chat UI
 
-When an agent has `chatwoot_inbox_identifier` configured, outbound messages are proxied to Chatwoot instead of n8n:
+### MongoDB
 
-- `/api/webhook` upserts the Chatwoot contact and propagates uploaded files/audio as real attachments. The optional `videoAnalysis=true` flag is passed along in `content_attributes`/`additional_attributes`, so the inbox can act on that metadata.
-- Incoming events from Chatwoot (`/api/chatwoot/webhook`) deliver attachments and the same attributes back to the app; the chat UI renders images/audio received from human agents.
-- Environment variables required on the app side: `CHATWOOT_BASE_URL`, `CHATWOOT_ACCOUNT_ID`, `CHATWOOT_API_TOKEN`, `CHATWOOT_WEBHOOK_TOKEN`.
-- In Chatwoot, configure an API inbox and set its public identifier on the agent. For webhooks, create a webhook pointing to `/api/chatwoot/webhook` and reuse the same secret value stored in `CHATWOOT_WEBHOOK_TOKEN` so signatures validate correctly.
+The app stores conversation history in the `conversations` collection.
 
-## Authentication Flow
+Typical fields include:
 
-- Register: uses signUpWithJiraCheck server action; Jira webhook determines initial role (partner vs non_client).
-- Login: fetches profiles.role to route admins to /admin, others to /.
-- Google OAuth: handled under /auth/callback, including Jira role detection and skip if existing admin.
-- Sign-out: /auth/signout clears Supabase session tokens.
+- `sessionId`
+- `agentId`
+- `email`
+- `conversationTitle`
+- `messages`
+- `createdAt`
+- `updatedAt`
+- optional Chatwoot metadata such as `chatwootConversationId`
 
-## Deployment Notes
+## Included n8n workflows
 
-- Audio recording requires HTTPS in browsers.
-- Supabase server client relies on cookies; middleware refreshes sessions so pages stay up to date.
-- MongoDB connection is cached; adjust maxPoolSize in lib/mongodb.ts for high throughput.
-- With `NEXT_PUBLIC_GA_ID` set, GA4 receives `agent_view` and `agent_message_sent` events that include agent identifiers, access level, and attachment metadata for reporting.
-- Consider enabling Vercel edge runtime for streaming routes if deploying there (current webhook route runs on Node runtime).
+- `workflow/check-jira-user-webhook.json`
+  - receives an email
+  - checks Jira user existence and Service Desk memberships
+  - returns `isJiraUser`, `isESD`, `isCSP`
+- `workflow/support-agent.json`
+  - support-oriented workflow used by the app for technical assistance
 
-## Troubleshooting
+## API routes
 
-- Agents not visible: ensure access_level matches the user role; home page excludes public agents by design.
-- “Access Denied” in chat: confirm agent path (prefixed with /) and role assignment in profiles.
-- Link preview errors: only HTML content is parsed; non-HTML responses return a fallback. Network restrictions may block outbound fetches locally.
-- Streaming stalls: verify n8n returns newline-delimited JSON and does not buffer entire response.
+- `app/api/webhook/route.ts`
+  - main chat entry point
+  - forwards requests to n8n or Chatwoot
+- `app/api/chatwoot/stream/route.ts`
+  - SSE polling bridge for Chatwoot conversations
+- `app/api/chatwoot/webhook/route.ts`
+  - validates Chatwoot webhook signatures
+- `app/api/chatwoot/messages/route.ts`
+  - Chatwoot message retrieval endpoint used by the UI
+- `app/api/link-preview/route.ts`
+  - safe HTML metadata extraction for link previews
+- `app/api/email/validate/route.ts`
+  - proxies email validation to an external provider
+
+## Environment variables
+
+Create `.env.local` with the values required by your environment.
+
+### Required for the app
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+MONGODB_URI=
+JIRA_WEBHOOK_URL=
+```
+
+### Optional but commonly needed
+
+```bash
+MONGODB_DB_NAME=
+CHATWOOT_BASE_URL=
+CHATWOOT_ACCOUNT_ID=
+CHATWOOT_API_TOKEN=
+CHATWOOT_WEBHOOK_TOKEN=
+CHATWOOT_MESSAGE_POLL_INTERVAL_MS=
+CHATWOOT_LABEL_POLL_INTERVAL_MS=
+NEXT_PUBLIC_GA_ID=
+NEXT_PUBLIC_SITE_URL=
+```
+
+## Local setup
+
+1. Install dependencies.
+
+```bash
+npm install
+```
+
+2. Configure `.env.local`.
+
+3. Prepare Supabase:
+   - create the expected tables
+   - ensure at least one `admin` profile exists
+   - apply migrations from `supabase/migrations/`
+
+4. Import and configure the n8n workflows you need.
+
+5. Run the app.
+
+```bash
+npm run dev
+```
+
+6. Open `http://localhost:3000`.
+
+## Database migration notes
+
+The repository includes `supabase/migrations/20260306120000_add_profile_memberships.sql`.
+
+That migration is additive:
+
+- adds `is_partner`
+- adds `is_customer`
+- backfills `is_partner` for existing `partner` users
+
+It does not rename or drop `profiles.role`.
+
+## Admin usage
+
+Admins can manage agents from `/[locale]/admin`.
+
+For each agent, the admin UI supports:
+
+- base metadata
+- translated name and description
+- localized initial prompts
+- access level selection
+- optional Chatwoot inbox identifier
+- `requires_email` gating before chat starts
+
+## Development commands
+
+```bash
+npm run dev
+npm run build
+npm start
+npm test
+npm run db:create-indexes
+```
+
+## Testing
+
+- Unit and integration tests run with `Vitest`.
+- The most relevant access and auth flows are covered under `tests/`.
+- If you run full TypeScript checks, note that the repository may contain unrelated pre-existing type issues outside the core chat/auth flow.
+
+## Operational notes
+
+- Middleware only handles locale routing; auth and ACL checks are done in the pages and server logic.
+- Public agents are intentionally hidden from authenticated users.
+- Chatwoot support requires valid Chatwoot credentials and inbox identifiers stored on agents.
+- Link previews are restricted to safe external HTTP/HTTPS targets and reject localhost/private addresses.
+
+## Recommended deployment checklist
+
+- Supabase auth configured for your site URL and OAuth callbacks
+- MongoDB reachable from the deployment environment
+- `JIRA_WEBHOOK_URL` pointing to the active n8n Jira membership workflow
+- Chatwoot variables configured if any agent uses Chatwoot
+- n8n workflows published and reachable from the app

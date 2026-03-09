@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { buildMembershipsFromJira } from "@/lib/auth/access-state";
 
 export async function GET(request: Request, { params }: { params: { locale: string } }) {
   const supabase = createClient();
@@ -17,8 +18,11 @@ export async function GET(request: Request, { params }: { params: { locale: stri
 
   const user = session.user;
 
-  // 2. Default role
-  let role = "non_client";
+  let profileMemberships = {
+    role: "non_client",
+    is_partner: false,
+    is_customer: false,
+  };
 
   // 3. Call Jira webhook to check if the user exists
   try {
@@ -32,9 +36,7 @@ export async function GET(request: Request, { params }: { params: { locale: stri
 
       if (jiraResponse.ok) {
         const jiraData = await jiraResponse.json();
-        if (jiraData.isJiraUser) {
-          role = "partner";
-        }
+        profileMemberships = buildMembershipsFromJira(jiraData);
       } else {
         console.error("Jira webhook failed:", jiraResponse.statusText);
       }
@@ -47,11 +49,11 @@ export async function GET(request: Request, { params }: { params: { locale: stri
 
   // 4. Get current profile role
   try {
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
 
     if (profileError) {
       console.error("Error fetching profile:", profileError.message);
@@ -59,7 +61,7 @@ export async function GET(request: Request, { params }: { params: { locale: stri
       // 5. Update the user profile role only if not admin
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ role })
+        .update(profileMemberships)
         .eq("id", user.id);
 
       if (updateError) {

@@ -20,6 +20,8 @@ const chatProfileSingleMock = vi.hoisted(() => vi.fn())
 vi.mock('next/navigation', () => ({
   redirect: redirectMock,
   notFound: vi.fn(),
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  usePathname: () => '/en/chat/special',
 }))
 
 vi.mock('next/headers', () => ({
@@ -79,7 +81,13 @@ vi.mock('@/lib/supabase/server', () => ({
 
       return {
         select: () => ({
-          eq: () => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null }) }),
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null }),
+              order: vi.fn().mockResolvedValue({ data: [] }),
+            }),
+            order: vi.fn().mockResolvedValue({ data: [] }),
+          }),
           order: vi.fn().mockResolvedValue({ data: [] }),
         }),
       }
@@ -127,7 +135,7 @@ describe('route guards', () => {
   it('shows access denied for authenticated user without required role', async () => {
     const t = createTranslator('en', 'chat.errors.accessDenied')
     chatAuthUserMock.mockResolvedValue({ data: { user: { id: 'u1', email: 'demo@example.com' } } })
-    chatProfileSingleMock.mockResolvedValue({ data: { role: 'partner' }, error: null })
+    chatProfileSingleMock.mockResolvedValue({ data: { role: 'partner', is_partner: true, is_customer: false }, error: null })
     chatAgentSingleMock.mockResolvedValue({
       data: { id: 'agent-1', access_level: 'non_client', path: '/special' },
       error: null,

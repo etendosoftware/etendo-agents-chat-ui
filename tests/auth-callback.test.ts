@@ -21,7 +21,7 @@ describe('auth callback route', () => {
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ isJiraUser: true }),
+      json: () => Promise.resolve({ isJiraUser: true, isESD: true, isCSP: false }),
     })
 
     selectMock.mockReturnValue({ eq: selectEqMock })
@@ -54,9 +54,31 @@ describe('auth callback route', () => {
     const response = await GET(request, { params: { locale: 'en' } })
 
     expect(exchangeCodeMock).toHaveBeenCalledWith('abc')
-    expect(updateMock).toHaveBeenCalledWith({ role: 'partner' })
+    expect(updateMock).toHaveBeenCalledWith({
+      role: 'partner',
+      is_partner: true,
+      is_customer: false,
+    })
     expect(updateEqMock).toHaveBeenCalledWith('id', 'user-1')
     expect(response.headers.get('location')).toBe('https://app.com/en')
+  })
+
+  it('stores customer membership without changing admin redirect logic', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ isJiraUser: true, isESD: false, isCSP: true }),
+    })
+
+    const { GET } = await import('../app/[locale]/auth/callback/route')
+    const request = new Request('https://app.com/en/auth/callback?code=abc')
+
+    await GET(request, { params: { locale: 'en' } })
+
+    expect(updateMock).toHaveBeenCalledWith({
+      role: 'non_client',
+      is_partner: false,
+      is_customer: true,
+    })
   })
 
   it('skips role update for admin profiles', async () => {

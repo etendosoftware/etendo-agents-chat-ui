@@ -38,7 +38,7 @@ export interface Agent {
   path: string
   color: string
   icon: string
-  access_level: "public" | "non_client" | "partner" | "admin"
+  access_level: "public" | "non_client" | "partner" | "customer" | "admin"
   requires_email?: boolean
   chatwoot_inbox_identifier?: string | null
 }

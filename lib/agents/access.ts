@@ -1,13 +1,12 @@
-export type AgentAccessLevel = 'public' | 'non_client' | 'partner' | 'admin'
-export type UserRole = 'non_client' | 'partner' | 'admin' | null
+import type { AgentAccessLevel, ProfileAccessState } from '@/lib/auth/access-state'
 
 export interface AccessContext {
   accessLevel: AgentAccessLevel
-  userRole: UserRole
+  accessState: ProfileAccessState | null
   isAuthenticated: boolean
 }
 
-export function canUserAccessAgent({ accessLevel, userRole, isAuthenticated }: AccessContext): boolean {
+export function canUserAccessAgent({ accessLevel, accessState, isAuthenticated }: AccessContext): boolean {
   if (accessLevel === 'public') {
     return !isAuthenticated
   }
@@ -16,36 +15,52 @@ export function canUserAccessAgent({ accessLevel, userRole, isAuthenticated }: A
     return false
   }
 
+  if (accessState?.isAdmin) {
+    return true
+  }
+
   if (accessLevel === 'non_client') {
-    return userRole === 'non_client' || userRole === 'admin'
+    return Boolean(accessState) && accessState?.isPartner !== true && accessState?.isCustomer !== true
   }
 
   if (accessLevel === 'partner') {
-    return userRole === 'partner' || userRole === 'admin'
+    return Boolean(accessState?.isPartner)
+  }
+
+  if (accessLevel === 'customer') {
+    return Boolean(accessState?.isCustomer)
   }
 
   if (accessLevel === 'admin') {
-    return userRole === 'admin'
+    return accessState?.isAdmin === true
   }
 
   return false
 }
 
-export function shouldListAgentOnHome(accessLevel: AgentAccessLevel, userRole: UserRole): boolean {
+export function shouldListAgentOnHome(accessLevel: AgentAccessLevel, accessState: ProfileAccessState | null): boolean {
   if (accessLevel === 'public') {
     return false
   }
 
+  if (accessState?.isAdmin) {
+    return true
+  }
+
   if (accessLevel === 'non_client') {
-    return userRole === 'non_client' || userRole === 'admin'
+    return Boolean(accessState) && accessState?.isPartner !== true && accessState?.isCustomer !== true
   }
 
   if (accessLevel === 'partner') {
-    return userRole === 'partner' || userRole === 'admin'
+    return accessState?.isPartner === true
+  }
+
+  if (accessLevel === 'customer') {
+    return accessState?.isCustomer === true
   }
 
   if (accessLevel === 'admin') {
-    return userRole === 'admin'
+    return accessState?.isAdmin === true
   }
 
   return false

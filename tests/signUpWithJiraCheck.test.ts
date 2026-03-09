@@ -42,10 +42,10 @@ describe('signUpWithJiraCheck', () => {
     process.env.JIRA_WEBHOOK_URL = originalEnv
   })
 
-  it('assigns partner role when Jira webhook confirms membership', async () => {
-    ;(global.fetch as vi.Mock).mockResolvedValue({
+  it('assigns partner membership when Jira webhook confirms ESD membership', async () => {
+    ;(global.fetch as any).mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ isJiraUser: true }),
+      json: () => Promise.resolve({ isJiraUser: true, isESD: true, isCSP: false }),
     })
 
     const { signUpWithJiraCheck } = await import('../app/[locale]/auth/register/actions')
@@ -53,26 +53,54 @@ describe('signUpWithJiraCheck', () => {
 
     expect(result).toEqual({ success: true })
     expect(signUpMock).toHaveBeenCalledWith({ email: 'user@example.com', password: 'secret123' })
-    expect(upsertMock).toHaveBeenCalledWith({ id: 'user-1', role: 'partner' })
+    expect(upsertMock).toHaveBeenCalledWith({
+      id: 'user-1',
+      role: 'partner',
+      is_partner: true,
+      is_customer: false,
+    })
   })
 
-  it('defaults to non_client when Jira webhook returns false', async () => {
-    ;(global.fetch as vi.Mock).mockResolvedValue({
+  it('stores customer membership without breaking legacy non_client role', async () => {
+    ;(global.fetch as any).mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ isJiraUser: false }),
+      json: () => Promise.resolve({ isJiraUser: true, isESD: false, isCSP: true }),
     })
 
     const { signUpWithJiraCheck } = await import('../app/[locale]/auth/register/actions')
     const result = await signUpWithJiraCheck({ email: 'user@example.com', password: 'secret123' })
 
     expect(result).toEqual({ success: true })
-    expect(upsertMock).toHaveBeenCalledWith({ id: 'user-1', role: 'non_client' })
+    expect(upsertMock).toHaveBeenCalledWith({
+      id: 'user-1',
+      role: 'non_client',
+      is_partner: false,
+      is_customer: true,
+    })
+  })
+
+  it('stores both memberships when user belongs to both Jira desks', async () => {
+    ;(global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ isJiraUser: true, isESD: true, isCSP: true }),
+    })
+
+    const { signUpWithJiraCheck } = await import('../app/[locale]/auth/register/actions')
+    const result = await signUpWithJiraCheck({ email: 'user@example.com', password: 'secret123' })
+
+    expect(result).toEqual({ success: true })
+    expect(upsertMock).toHaveBeenCalledWith({
+      id: 'user-1',
+      role: 'partner',
+      is_partner: true,
+      is_customer: true,
+    })
   })
 
   it('returns error when sign up fails', async () => {
-    ;(global.fetch as vi.Mock).mockResolvedValue({
+    ;(global.fetch as any).mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ isJiraUser: false }),
+      json: () => Promise.resolve({ isJiraUser: false, isESD: false, isCSP: false }),
     })
 
     signUpMock.mockResolvedValue({ data: { user: null }, error: { message: 'duplicate' } })
