@@ -15,7 +15,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useTranslations } from "next-intl";
 import type { Locale } from "@/i18n/config";
 
-type AccessLevel = "public" | "non_client" | "partner" | "admin";
+type AccessLevel = "public" | "non_client" | "partner" | "customer" | "admin";
 
 interface AgentTranslation {
   name: string;
@@ -47,18 +47,18 @@ interface AdminAgent {
 
 interface AdminPanelClientProps {
   initialAgents: AdminAgent[];
-  locales: Locale[];
+  locales: readonly Locale[];
   defaultLocale: Locale;
   displayLocale: Locale;
 }
 
-const createEmptyTranslations = (localeList: Locale[]): AgentTranslations =>
+const createEmptyTranslations = (localeList: readonly Locale[]): AgentTranslations =>
   localeList.reduce((acc, locale) => {
     acc[locale] = { name: "", description: "" };
     return acc;
   }, {} as AgentTranslations);
 
-const cloneTranslations = (translations: AgentTranslations, localeList: Locale[]): AgentTranslations =>
+const cloneTranslations = (translations: AgentTranslations, localeList: readonly Locale[]): AgentTranslations =>
   localeList.reduce((acc, locale) => {
     const source = translations?.[locale];
     acc[locale] = {
@@ -68,13 +68,13 @@ const cloneTranslations = (translations: AgentTranslations, localeList: Locale[]
     return acc;
   }, {} as AgentTranslations);
 
-const createEmptyPrompts = (localeList: Locale[]): AgentPrompts =>
+const createEmptyPrompts = (localeList: readonly Locale[]): AgentPrompts =>
   localeList.reduce((acc, locale) => {
     acc[locale] = [];
     return acc;
   }, {} as AgentPrompts);
 
-const clonePrompts = (prompts: AgentPrompts, localeList: Locale[]): AgentPrompts =>
+const clonePrompts = (prompts: AgentPrompts, localeList: readonly Locale[]): AgentPrompts =>
   localeList.reduce((acc, locale) => {
     const sourceList = prompts?.[locale] ?? [];
     acc[locale] = sourceList.map((prompt) => ({ ...prompt }));
@@ -368,7 +368,7 @@ export function AdminPanelClient({ initialAgents, locales, defaultLocale, displa
 
 interface AgentEditorProps {
   agent: AdminAgent;
-  locales: Locale[];
+  locales: readonly Locale[];
   defaultLocale: Locale;
   onSave: (agent: AdminAgent) => void;
   onCancel: () => void;
@@ -648,6 +648,7 @@ function AgentEditor({ agent, locales, defaultLocale, onSave, onCancel }: AgentE
             <SelectItem value="public">{t('accessLevel.options.public')}</SelectItem>
             <SelectItem value="non_client">{t('accessLevel.options.non_client')}</SelectItem>
             <SelectItem value="partner">{t('accessLevel.options.partner')}</SelectItem>
+            <SelectItem value="customer">{t('accessLevel.options.customer')}</SelectItem>
             <SelectItem value="admin">{t('accessLevel.options.admin')}</SelectItem>
           </SelectContent>
         </Select>

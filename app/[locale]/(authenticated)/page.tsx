@@ -4,21 +4,22 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Agent } from '@/components/chat-interface';
 import { shouldListAgentOnHome } from '@/lib/agents/access';
+import { buildProfileAccessState } from '@/lib/auth/access-state';
 import { getTranslator } from '@/i18n/translator';
 import type { Locale } from '@/i18n/config';
 import HomeAgentCard from '@/components/home-agent-card';
 
-async function getUserRole(supabaseClient: any, userId: string) {
+async function getUserAccessState(supabaseClient: any, userId: string) {
     const { data: profile, error } = await supabaseClient
         .from('profiles')
-        .select('role')
+        .select('role, is_partner, is_customer')
         .eq('id', userId)
         .single();
 
     if (error || !profile) {
         return null;
     }
-    return profile.role as 'admin' | 'partner';
+    return buildProfileAccessState(profile);
 }
 
 export default async function Home({ params }: { params: { locale: Locale } }) {
@@ -44,7 +45,7 @@ export default async function Home({ params }: { params: { locale: Locale } }) {
     if (!user) {
         redirect(`${localePrefix}/auth/login`);
     }
-    const userRole = await getUserRole(supabaseClient, user.id);
+    const accessState = await getUserAccessState(supabaseClient, user.id);
 
     const { data: agents, error: agentsError } = await supabaseClient.from('agents').select('*');
 
@@ -78,7 +79,7 @@ export default async function Home({ params }: { params: { locale: Locale } }) {
         };
     });
 
-    const filteredAgents = localizedAgents.filter(agent => shouldListAgentOnHome(agent.access_level, userRole));
+    const filteredAgents = localizedAgents.filter(agent => shouldListAgentOnHome(agent.access_level, accessState));
 
     return (
         <div className='mx-auto w-full max-w-7xl px-6 py-8 md:px-10'>

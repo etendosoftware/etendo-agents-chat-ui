@@ -1,5 +1,6 @@
 'use server';
 import { createClient } from '@/lib/supabase/server';
+import { buildMembershipsFromJira } from '@/lib/auth/access-state';
 import { z } from 'zod';
 
 export async function signUpWithJiraCheck(values: unknown) {
@@ -16,8 +17,11 @@ export async function signUpWithJiraCheck(values: unknown) {
   const { email, password } = parsed.data;
   const supabase = createClient();
 
-  // Variable to store the user role
-  let userRole = 'non_client'; // Default role for non-Jira users
+  let profileMemberships = {
+    role: 'non_client',
+    is_partner: false,
+    is_customer: false,
+  };
 
   // 1. Jira Webhook Check
   try {
@@ -39,10 +43,7 @@ export async function signUpWithJiraCheck(values: unknown) {
     }
 
     const jiraData = await jiraResponse.json();
-    
-    if (jiraData.isJiraUser) {
-      userRole = 'partner';
-    }
+    profileMemberships = buildMembershipsFromJira(jiraData);
   } catch (e) {
     console.error('Error calling Jira webhook:', e);
     // seguimos con non_client si falla
@@ -68,7 +69,7 @@ export async function signUpWithJiraCheck(values: unknown) {
       .from('profiles')
       .upsert({
         id: signUpData.user.id, // el mismo id que el user
-        role: userRole,
+        ...profileMemberships,
       });
 
     if (profileError) {

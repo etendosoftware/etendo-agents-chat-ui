@@ -52,6 +52,7 @@
         "public": "Público",
         "non_client": "No cliente",
         "partner": "Socio",
+        "customer": "Cliente",
         "admin": "Administrador"
       }
     },
