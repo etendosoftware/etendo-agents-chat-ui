@@ -179,7 +179,7 @@ export default function ChatInterface({
   )
   const chatwootKnownMessageIdsRef = useRef<Set<string>>(new Set())
   const chatwootPendingSinceRef = useRef<number | null>(null)
-  const chatwootEventSourceRef = useRef<EventSource | null>(null)
+  const chatwootPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const chatwootBootstrapFetchDoneRef = useRef<Set<string>>(new Set())
   const chatwootBootstrapFetchInFlightRef = useRef<Set<string>>(new Set())
   const [chatwootHasHuman, setChatwootHasHuman] = useState(false)
@@ -669,9 +669,9 @@ export default function ChatInterface({
         window.clearTimeout(conversationsInvalidateTimeoutRef.current)
         conversationsInvalidateTimeoutRef.current = null
       }
-      if (chatwootEventSourceRef.current) {
-        chatwootEventSourceRef.current.close()
-        chatwootEventSourceRef.current = null
+      if (chatwootPollIntervalRef.current) {
+        clearInterval(chatwootPollIntervalRef.current)
+        chatwootPollIntervalRef.current = null
       }
     }
 
@@ -688,7 +688,7 @@ export default function ChatInterface({
         return null
       }
 
-      const type = item?.message_type
+      const type = item?.message_type ?? item?.messageType
       const isOutgoing =
         (typeof type === "string" && type.toLowerCase() === "outgoing") ||
         (typeof type === "number" && type === 1)
@@ -708,7 +708,7 @@ export default function ChatInterface({
       }
 
       let createdAtMs = Date.now()
-      const createdAtRaw = item?.created_at ?? item?.created_at_i ?? item?.timestamp
+      const createdAtRaw = item?.created_at ?? item?.created_at_i ?? item?.timestamp ?? item?.createdAt
       if (typeof createdAtRaw === "number") {
         createdAtMs = createdAtRaw > 9999999999 ? createdAtRaw : createdAtRaw * 1000
       } else if (typeof createdAtRaw === "string") {
@@ -886,58 +886,50 @@ export default function ChatInterface({
       return
     }
 
-    const url = `/api/chatwoot/stream?conversationId=${encodeURIComponent(chatwootConversationId)}`
-    const eventSource = new EventSource(url)
-    chatwootEventSourceRef.current = eventSource
-
-    const handleMessage = (event: MessageEvent) => {
+    const poll = async () => {
       try {
-        const payload = JSON.parse(event.data)
-        const rawMessage = payload?.message ?? payload
-        const normalized = normalizeChatwootMessageRef.current(rawMessage)
-        if (normalized) {
-          commitChatwootMessagesRef.current([normalized])
-          if (normalized.sender === "agent" && normalized.content) {
-            const mongoId = conversationId
-            const convUrl = mongoId
-              ? `/${locale}/chat/${agentPath}/${mongoId}`
-              : undefined
-            notifyNewMessageRef.current?.(normalized.content, convUrl)
+        const url = `/api/chatwoot/poll?conversationId=${encodeURIComponent(chatwootConversationId)}`
+        const res = await fetch(url)
+        if (!res.ok) return
+        const { messages, labelState } = await res.json()
+
+        if (Array.isArray(messages)) {
+          const normalized = messages
+            .map((msg: unknown) => normalizeChatwootMessageRef.current(msg))
+            .filter((m): m is NonNullable<typeof m> => m !== null)
+          if (normalized.length > 0) {
+            commitChatwootMessagesRef.current(normalized)
+            normalized.forEach((msg) => {
+              if (msg.sender === "agent" && msg.content) {
+                const convUrl = conversationId
+                  ? `/${locale}/chat/${agentPath}/${conversationId}`
+                  : undefined
+                notifyNewMessageRef.current?.(msg.content, convUrl)
+              }
+            })
           }
         }
-      } catch (error) {
-        console.error("[chatwoot] Error procesando SSE", error)
-      }
-    }
 
-    const handleHandoff = (event: MessageEvent) => {
-      try {
-        const payload = JSON.parse(event.data)
-        const human = Boolean(payload?.human)
-        setChatwootHasHuman(human)
-        if (human) {
-          setIsLoading(false)
-          setIsResponding(false)
+        if (labelState) {
+          const human = Boolean(labelState.hasHuman)
+          setChatwootHasHuman(human)
+          if (human) {
+            setIsLoading(false)
+            setIsResponding(false)
+          }
         }
-      } catch (error) {
-        console.error("[chatwoot] Error procesando handoff", error)
+      } catch {
+        // red de red — ignorar, el próximo poll lo reintenta
       }
     }
 
-    eventSource.addEventListener("chatwoot_message", handleMessage)
-    eventSource.addEventListener("chatwoot_handoff", handleHandoff)
-    eventSource.addEventListener("ping", () => { /* keep-alive */ })
-
-    eventSource.onerror = (event) => {
-      console.error("[chatwoot] SSE error", event)
-    }
+    poll()
+    chatwootPollIntervalRef.current = setInterval(poll, 3000)
 
     return () => {
-      eventSource.removeEventListener("chatwoot_message", handleMessage)
-      eventSource.removeEventListener("chatwoot_handoff", handleHandoff)
-      eventSource.close()
-      if (chatwootEventSourceRef.current === eventSource) {
-        chatwootEventSourceRef.current = null
+      if (chatwootPollIntervalRef.current) {
+        clearInterval(chatwootPollIntervalRef.current)
+        chatwootPollIntervalRef.current = null
       }
     }
   }, [chatwootConversationId, isChatwootAgent])
