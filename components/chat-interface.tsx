@@ -688,7 +688,7 @@ export default function ChatInterface({
         return null
       }
 
-      const type = item?.message_type
+      const type = item?.message_type ?? item?.messageType
       const isOutgoing =
         (typeof type === "string" && type.toLowerCase() === "outgoing") ||
         (typeof type === "number" && type === 1)
@@ -708,7 +708,7 @@ export default function ChatInterface({
       }
 
       let createdAtMs = Date.now()
-      const createdAtRaw = item?.created_at ?? item?.created_at_i ?? item?.timestamp
+      const createdAtRaw = item?.created_at ?? item?.created_at_i ?? item?.timestamp ?? item?.createdAt
       if (typeof createdAtRaw === "number") {
         createdAtMs = createdAtRaw > 9999999999 ? createdAtRaw : createdAtRaw * 1000
       } else if (typeof createdAtRaw === "string") {

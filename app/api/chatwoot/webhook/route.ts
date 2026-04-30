@@ -1,5 +1,6 @@
 import crypto from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
+import { saveChatwootWebhookEvent } from "@/lib/chatwoot/message-store"
 
 function getWebhookToken() {
   return process.env.CHATWOOT_WEBHOOK_TOKEN
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
 
       const digest = computeSignature(rawBody)
       if (!digest || !timingSafeEqual(digest, signature)) {
+        console.warn("[chatwoot] Firma inválida", { received: signature.slice(0, 8) })
         return NextResponse.json({ error: "Firma inválida" }, { status: 401 })
       }
     }
@@ -55,6 +57,8 @@ export async function POST(request: NextRequest) {
 
     const payload = JSON.parse(rawBody)
     console.info("[chatwoot] Webhook recibido", payload?.event ?? payload?.event_name ?? payload?.type)
+
+    await saveChatwootWebhookEvent(payload)
 
     return NextResponse.json({ ok: true })
   } catch (error) {
